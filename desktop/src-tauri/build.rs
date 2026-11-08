@@ -7,6 +7,8 @@ fn main() {
             "list_runs",
             "read_report",
             "run_audit",
+            "gateway_snapshot",
+            "gateway_control",
         ]),
     ))
     .expect("Tauri build configuration failed");

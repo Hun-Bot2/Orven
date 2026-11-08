@@ -153,6 +153,49 @@ async fn run_audit<R: tauri::Runtime>(
     .await
     .map_err(|_| "Audit interrupted; incomplete output is not a completed report")?
 }
+#[tauri::command]
+async fn gateway_snapshot<R: tauri::Runtime>(
+    session_id: Option<String>,
+    window: WebviewWindow<R>,
+    state: State<'_, DesktopState>,
+) -> Result<audit_core::gateway::ControlReply, String> {
+    authorize(&window)?;
+    let base = state
+        .workspace
+        .lock()
+        .map_err(|_| "Workspace unavailable")?
+        .base()
+        .to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        let request = match session_id {
+            Some(session_id) => audit_core::gateway::Control::ForSession {
+                session_id,
+                request: Box::new(audit_core::gateway::Control::Snapshot),
+            },
+            None => audit_core::gateway::Control::Snapshot,
+        };
+        audit_core::gateway::control(&base, &request)
+    })
+    .await
+    .map_err(|_| "Gateway interrupted")?
+}
+#[tauri::command]
+async fn gateway_control<R: tauri::Runtime>(
+    window: WebviewWindow<R>,
+    state: State<'_, DesktopState>,
+    request: audit_core::gateway::Control,
+) -> Result<audit_core::gateway::ControlReply, String> {
+    authorize(&window)?;
+    let base = state
+        .workspace
+        .lock()
+        .map_err(|_| "Workspace unavailable")?
+        .base()
+        .to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || audit_core::gateway::control(&base, &request))
+        .await
+        .map_err(|_| "Gateway interrupted")?
+}
 fn context<R: tauri::Runtime>() -> tauri::Context<R> {
     tauri::generate_context!()
 }
@@ -183,7 +226,9 @@ fn main() {
             select_project,
             list_runs,
             read_report,
-            run_audit
+            run_audit,
+            gateway_snapshot,
+            gateway_control
         ])
         .run(context())
         .expect("Orven native application failed");
@@ -232,7 +277,9 @@ mod tests {
                 select_project,
                 list_runs,
                 read_report,
-                run_audit
+                run_audit,
+                gateway_snapshot,
+                gateway_control
             ])
             .build(context())
             .unwrap();
@@ -260,6 +307,30 @@ mod tests {
         let mut remote = request();
         remote.url = "https://example.com".parse().unwrap();
         assert!(tauri::test::get_ipc_response(&main, remote).is_err());
+        for command in ["gateway_snapshot", "gateway_control"] {
+            let make_invoke = || {
+                let mut invoke = request();
+                invoke.cmd = command.into();
+                invoke.body = tauri::ipc::InvokeBody::Json(
+                    serde_json::json!({"request":{"operation":"snapshot"}}),
+                );
+                invoke
+            };
+            let mut invoke = make_invoke();
+            let unavailable = tauri::test::get_ipc_response(&main, make_invoke()).unwrap_err();
+            assert!(
+                unavailable.to_string().contains("Gateway unavailable"),
+                "{unavailable}"
+            );
+            assert!(
+                tauri::test::get_ipc_response(&other, make_invoke())
+                    .unwrap_err()
+                    .to_string()
+                    .contains("not allowed")
+            );
+            invoke.url = "https://example.com".parse().unwrap();
+            assert!(tauri::test::get_ipc_response(&main, invoke).is_err());
+        }
         let mut forbidden_dialog = request();
         forbidden_dialog.cmd = "plugin:dialog|open".into();
         forbidden_dialog.body = tauri::ipc::InvokeBody::Json(serde_json::json!({"options":{}}));

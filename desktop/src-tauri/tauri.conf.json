@@ -44,7 +44,9 @@
             "allow-list-runs",
             "allow-read-report",
             "allow-run-audit",
-            "core:window:allow-start-dragging"
+            "core:window:allow-start-dragging",
+            "allow-gateway-snapshot",
+            "allow-gateway-control"
           ]
         }
       ]
