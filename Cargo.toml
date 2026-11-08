@@ -1,0 +1,8 @@
+[workspace]
+members = ["crates/audit-core"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.98"
+license = "Apache-2.0"
