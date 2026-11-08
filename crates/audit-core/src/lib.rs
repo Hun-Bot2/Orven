@@ -1,5 +1,6 @@
 //! Offline, committed-snapshot inspection. Never invokes repository commands.
 #![forbid(unsafe_code)]
+pub mod workspace;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
