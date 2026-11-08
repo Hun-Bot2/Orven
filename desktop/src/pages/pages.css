@@ -1,0 +1,186 @@
+.history-page,
+.security-page {
+  min-width: 0;
+  color: var(--ink);
+}
+.history-page > .panel {
+  margin-top: 20px;
+}
+.history-page .panel-header h2,
+.security-page .panel-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.history-page .history-caption {
+  font: 11px/16px var(--mono);
+  color: var(--muted);
+}
+.history-page .history-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(200px, 1fr);
+  gap: 20px;
+  padding: 16px;
+}
+.history-page .history-snapshots {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(100px, 1fr));
+  gap: 8px;
+  align-content: start;
+  overflow-x: auto;
+}
+.history-page .history-snapshot {
+  min-width: 100px;
+  text-align: left;
+  border: 1px solid var(--line-strong);
+  background: var(--canvas);
+  padding: 10px;
+  color: var(--ink);
+  font: 11px/16px var(--mono);
+  cursor: pointer;
+}
+.history-page .history-snapshot:hover {
+  background: var(--subtle);
+}
+.history-page .history-snapshot.is-selected {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+  background: var(--paper);
+}
+.history-page .history-snapshot-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+.history-page .history-snapshot-head span,
+.history-page .history-date {
+  color: var(--muted);
+  font-size: 10px;
+}
+.history-page .history-snapshot .distribution {
+  margin: 12px 0;
+}
+.history-page .history-snapshot .bar-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.history-page .history-summary {
+  border-left: 1px solid var(--line);
+  padding-left: 20px;
+  display: grid;
+  gap: 12px;
+}
+.history-page .history-summary p,
+.history-page .history-comparison p {
+  margin: 0;
+  color: var(--secondary);
+  font: 13px/19px var(--sans);
+}
+.history-page .history-mono {
+  font: 12px/18px var(--mono);
+}
+.history-page .history-selected-row {
+  background: var(--rail);
+}
+.history-page .history-comparison {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+}
+.security-page .security-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-block: 1px solid var(--line);
+  background: var(--rail);
+}
+.security-page .security-metrics .metric {
+  padding: 16px;
+  border-right: 1px solid var(--line);
+}
+.security-page .security-metrics .metric:last-child {
+  border-right: 0;
+}
+.security-page .security-content {
+  display: grid;
+  gap: 20px;
+  padding-top: 24px;
+}
+.security-page .security-connections,
+.security-page .security-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+.security-page .security-connection,
+.security-page .security-policy-grid section {
+  border: 1px solid var(--line);
+  padding: 16px;
+  background: var(--canvas);
+}
+.security-page .security-connection header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.security-page .security-connection p,
+.security-page .security-notice p,
+.security-page .security-policy-grid li {
+  color: var(--secondary);
+  font: 13px/19px var(--sans);
+}
+.security-page .security-connection p {
+  margin: 12px 0 0;
+}
+.security-page .security-policy-grid h3 {
+  font: 600 13px/19px var(--sans);
+  margin: 0;
+}
+.security-page .security-policy-grid ul {
+  padding-left: 18px;
+  margin: 10px 0 0;
+}
+.security-page .security-policy-grid li + li {
+  margin-top: 8px;
+}
+.security-page .security-notice {
+  padding: 16px 20px;
+}
+.security-page .security-notice p {
+  margin: 0;
+}
+.security-page .security-notice p + p {
+  margin-top: 8px;
+}
+@media (max-width: 1100px) {
+  .history-page .history-progress {
+    grid-template-columns: 1fr;
+  }
+  .history-page .history-summary {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding: 12px 0 0;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .history-page .history-summary p {
+    grid-column: 1/-1;
+  }
+  .security-page .security-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .security-page .security-metrics .metric:nth-child(2) {
+    border-right: 0;
+  }
+  .security-page .security-metrics .metric:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+.history-page .history-date {
+  display: block;
+  margin-top: 6px;
+}
