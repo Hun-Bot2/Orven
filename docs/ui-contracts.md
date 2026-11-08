@@ -25,3 +25,6 @@ Frontend transport is a typed command boundary. Production uses Tauri only; plai
 ## Scope and evidence
 
 2A covers shell, real project registration/switching, audit execution using existing core, stored reports/history and evidence navigation. This is the local part of roadmap Phase 2. MCP serving/publication/authentication and actual host interoperability are Phase 2B; no full Phase 2 completion claim until those gates pass. Browser screenshots validate rendered layout and interactions against synthetic fixtures; native screenshots and backend tests are separately reported.
+
+
+Phase 2B retains this design system. Security/Handoffs pages receive typed gateway snapshots and dispatch explicit scope/decision/revocation callbacks; they own no filesystem or authorization logic. The shell owns polling, stale-response suppression and related-report workspace selection. Pending audit and report requests require a shared confirmation dialog; report approval additionally requires the frozen exact projection. No claimed client name is trusted identity. Unknown/unreachable gateway state is shown unavailable, separately from unsupported remote/provider capabilities. Native control calls run off the UI thread and retain the main-window/origin ACL.

@@ -1,5 +1,7 @@
 # Phase 2A — local desktop workspace
 
+Historical milestone receipt: [Phase 2B](phase-2b.md) records subsequent MCP/consent implementation, directory-handle hardening and watchdog tests. Its amended ADR-004 supersedes the former three-tool plan below; the earlier pass counts remain historical. Native manual interaction and packed-storage support remain open.
+
 Implemented and reviewed 2026-11-08 on macOS Apple Silicon, Rust/Cargo 1.98.0 and Node 26.8.1. This is the local desktop portion of roadmap Phase 2. MCP publishing/authorization, assistant interoperability, chat handoffs and remote execution remain later work. No connections, findings, security events, certainty scores or mutation counters are simulated in the installed application.
 
 ## Scope and responsibilities

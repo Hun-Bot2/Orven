@@ -26,13 +26,13 @@ Date: 2026-11-06. **Accepted** means chosen for this architecture; nothing here 
 
 **Alternatives and consequences:** A prose-only transcript loses provenance. SQLite, vector search and an event-sourced ledger have no demonstrated initial requirement. File storage needs explicit limits, deletion and revision rules; it is not an encrypted vault or tamper-proof audit log. Add an index only after measured query needs justify it.
 
-## ADR-004 — Portable read-only report MCP, explicit publication scope
+## ADR-004 — Consent-controlled workspace MCP gateway
 
-**Status: Accepted.** rmcp exposes only selected finalized reports/evidence through three bounded read tools. Register repositories, run audits, and authorize exports through the local operator surface. Support stdio for local hosts and authenticated Streamable HTTP for remote hosts; use existing tunneling infrastructure only where supported.
+**Status: Accepted, amended 2026-11-08 by the explicit Phase 2B request.** Supersedes the previous three-tool, report-only proposal. One standalone `audit-host mcp PROFILE` stdio process manages every registered workspace, independently of Tauri. Local grants default deny and are bound to a concrete session, opaque workspace, root/Git directory identity and revocation epoch. Each exact audit and each frozen source-free report projection needs separate application consent. The five tools and precise limits are in [the gateway contract](gateway-contract.md).
 
-**Reason:** ChatGPT and Claude have different connectivity paths, but can consume a common model-readable tool contract. Serving published bundles avoids exposing the source filesystem or remote execution to assistant callers.
+**Reason:** The approved Phase 2B workflow explicitly requires assistant-requested audits and traceable handoffs. Reusing Core registration, snapshot inspection and validated reports keeps one audit engine while local consent prevents model instructions or host dialogs from granting authority.
 
-**Alternatives and consequences:** A generic filesystem/shell MCP creates a much wider authority boundary. Host-specific widgets and duplicate agent skills add maintenance without helping the first audit. ChatGPT cannot be promised a direct local stdio connection; tunnels need a live host. Cloud sharing remains opt-in. HTTP authorization must work with actual hosts before support is advertised; public plugin-directory submission is a separate release decision.
+**Alternatives and consequences:** No generic file/shell/execution tool, source publication, provider orchestration or conversation-history retrieval. Amended 2026-11-09 after actual Claude Cowork/Code subprocess failures: a profile permits up to eight isolated stdio sessions, with per-session grants/control/journals and a shared Core registry/report store. A profile-wide worker lease serializes MCP audits; no broker or duplicate audit engine is introduced. This supersedes the singleton restriction based on observed host behavior. Unix control socket permissions trust the owner OS account, not claimed client names. Atomic redacted JSON retains at most 16 briefs with 24-hour retention (cleanup while running or at next startup); stopped cleanup resumes next launch. Grants never persist. Directory capabilities and pinned inode checks address root replacement; they are not an OS sandbox. Report release records transport commitment, not provider receipt. Stdio traffic is verified with a synthetic client; actual host receipts remain open. HTTP/OAuth, tunnel deployment and desktop extensions remain disabled until separately validated. See [Phase 2B evidence](phase-2b.md).
 
 ## ADR-005 — Optional single-owner runner and bounded agent adapters
 
@@ -48,8 +48,8 @@ Date: 2026-11-06. **Accepted** means chosen for this architecture; nothing here 
 
 | Question | Current assumption or candidate | Resolve by |
 | --- | --- | --- |
-| First supported OS/architecture | macOS Apple Silicon CLI validated with Rust 1.98.0; native desktop support pending | Phase 1: choose target and native toolchain, record exact versions |
-| Versions/MSRV and Git reader | Rust 1.98.0; git2 0.21.0 loose-object reader selected. Tauri 2.12.5/rmcp 3.9.0 compiled in temporary spike; full product integration pending | Phase 1: locked compile and hostile-layout tests |
+| First supported OS/architecture | macOS Apple Silicon CLI validated with Rust 1.98.0; desktop built/rendered; manual picker gate pending | Phase 1: choose target and native toolchain, record exact versions |
+| Versions/MSRV and Git reader | Rust 1.98.0; git2 0.21.0 loose-object reader selected. Tauri 2.12.5/rmcp 3.9.0 compiled in temporary spike; stdio integrated; live host gates pending | Phase 1: locked compile and hostile-layout tests |
 | UI and storage retention | React/TypeScript/Vite bundled UI selected in 2A; local private files. Retention duration and encryption mechanism remain open | Phase 2: native prototype and deletion/permission checks |
 | Working-copy auditing | Outside initial scope | Separate ADR with race-safe capture and dirty-state provenance |
 | Host/account entitlement | Operator can enable custom MCP; account/workspace policy unknown | Phase 2: actual Claude Desktop and ChatGPT connection receipts |

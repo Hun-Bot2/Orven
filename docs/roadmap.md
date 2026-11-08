@@ -1,6 +1,6 @@
 # Phased development roadmap
 
-Phase 1 has an initial implemented slice; see [validation and scope restrictions](phase-1.md). Phase 2A local desktop work is implemented within the [recorded validation limits](phase-2a.md). Later integration phases remain future work. Gates define evidence required to proceed; they are not completed checks. Phases 3 and 4 are optional independent extensions after Phase 2. The original documentation-only initialization is complete; implementation is now authorized incrementally.
+Phase 1 has an initial implemented slice; see [validation and scope restrictions](phase-1.md). Phase 2A local desktop work is implemented within the [recorded validation limits](phase-2a.md). Phase 2B local gateway is implemented; live hosts and native manual gates remain open in [its receipt](phase-2b.md). Later integration phases remain future work. Gates define evidence required to proceed; they are not completed checks. Phases 3 and 4 are optional independent extensions after Phase 2. The original documentation-only initialization is complete; implementation is now authorized incrementally.
 
 ## Phase 0 — Architecture baseline
 
@@ -18,11 +18,11 @@ Build one deterministic vertical slice: register a root → resolve a commit →
 
 Execution split: **2A** is the local desktop shell, registered project switching, existing-core audit execution, stored reports/history and evidence viewing using Option A. See [2A receipts and remaining manual gate](phase-2a.md). **2B** adds explicit publication/retention/revocation/deletion, MCP transports/auth and actual host interoperability. The full exit gate below is not met by 2A alone.
 
-Add the Tauri viewer and native registration/run/export flow. Choose a small frontend. Implement scoped IPC and safe Markdown rendering. Add the three read-only MCP report tools in headless stdio and optional HTTP modes. Published bundles contain only previewed data; disabling publication removes access to those bundles without changing local source evidence.
+Add the Tauri viewer and native registration/run/export flow. Choose a small frontend. Implement scoped IPC and safe Markdown rendering. Under amended ADR-004, add the five consent-controlled workspace tools in headless stdio. HTTP remains deferred until authorization and host validation are available. Published bundles contain only previewed data; disabling publication removes access to those bundles without changing local source evidence.
 
 Use an operator-configured supported tunnel for a ChatGPT private connection where available; it is connectivity, not a runner. Use Claude Desktop stdio for local integration. Provision no public endpoint automatically. Implement HTTP authorization before any Internet exposure.
 
-**Exit gate:** native macOS capture demonstrates an offline audit and evidence navigation; IPC denied-window and path/ID tests pass. Actual Claude Desktop and ChatGPT sessions read the same approved report and evidence, with correct schemas and no access to unpublished runs. Record versions, account policy, transport and negotiated revision; inspect provider-bound bytes. Test invalid IDs, missing evidence, pagination limits, disconnection, publication revocation and empty findings with incomplete coverage. Validate store permissions/deletion, script/HTML injection resistance and report freshness display. Inspector/API tests alone do not establish host support. If host entitlement is unavailable, retain the local milestone and mark that host gate blocked/unverified.
+**Exit gate:** native macOS capture demonstrates an offline audit and evidence navigation; IPC denied-window and path/ID tests pass. Actual Claude Desktop and ChatGPT sessions read the same approved source-free report projection, with correct schemas and no access to unpublished runs. Record versions, account policy, transport and negotiated revision; inspect provider-bound bytes. Test invalid IDs, missing evidence, pagination limits, disconnection, publication revocation and empty findings with incomplete coverage. Validate store permissions/deletion, script/HTML injection resistance and report freshness display. Inspector/API tests alone do not establish host support. If host entitlement is unavailable, retain the local milestone and mark that host gate blocked/unverified.
 
 ## Phase 3 — Optional remote runner for an offline Mac
 

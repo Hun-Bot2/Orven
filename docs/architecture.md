@@ -1,6 +1,6 @@
 # Architecture
 
-Status: accepted design baseline; Phase 1 core/CLI implemented within the restrictions in [the validation receipt](phase-1.md). Desktop, MCP, providers and remote operation below remain planned. See [ADRs](decisions.md) for rationale and [compatibility](compatibility.md) for external facts.
+Status: core/CLI, Phase 2A desktop and Phase 2B local consent-controlled stdio are implemented within their recorded limits. Actual host interoperability, providers and remote operation remain unverified or deferred. See [Phase 2B receipt](phase-2b.md). See [ADRs](decisions.md) for rationale and [compatibility](compatibility.md) for external facts.
 
 ## Responsibilities and dependency direction
 
@@ -15,8 +15,10 @@ flowchart TD
     Core -->|Read only| Snapshot[Authorized Git snapshot]
     Core -->|Write outside repository| Store[Local evidence and reports]
     Store -->|Owner selects and redacts| Bundle[Published report bundle]
-    Hosts[ChatGPT or Claude] -->|MCP: stdio or authenticated HTTP| MCP[rmcp boundary in headless executable]
-    MCP -->|Read only| Bundle
+    Hosts[ChatGPT or Claude] -->|MCP: stdio; HTTP deferred| MCP[rmcp boundary in headless executable]
+    MCP -->|Workspace grant plus per-operation consent| Core
+    Desktop -->|Private Unix control socket| MCP
+    MCP -->|Exact source-free preview| Bundle
     Headless -. Optional bounded analysis .-> Adapter[Codex or Claude Code subprocess]
     Adapter -. Explicit provider egress .-> Provider[Model provider]
 ```
@@ -24,7 +26,7 @@ flowchart TD
 | Component | Owns | Does not own |
 | --- | --- | --- |
 | Shared core | Root registration policy, snapshot manifest, deterministic checks, evidence validation, report generation, export filtering | Tauri, MCP wire protocol, model authentication, shell execution |
-| Headless executable | Operator audit/export commands; rmcp report server modes; optional adapter driver; remote batch invocation | A second audit engine, generic command execution, a scheduler fleet |
+| Headless executable | Operator audit/export commands; rmcp consent gateway mode; optional adapter driver; remote batch invocation | A second audit engine, generic command execution, a scheduler fleet |
 | Tauri shell | Native folder selection, audit lifecycle, local report viewing, export consent; calls core in process | Raw filesystem/shell access from JavaScript; mandatory background daemon |
 | Local store | Versioned JSON records, immutable evidence blobs, generated Markdown, separately selected published bundles | Cloud synchronization, a vector index, an initial database service |
 | Optional adapter | Convert a bounded evidence package into schema-validated candidate findings | Register roots, widen scope, declare tests passed, mutate authoritative evidence |
@@ -32,7 +34,7 @@ flowchart TD
 
 The core has no dependency on Tauri, rmcp, or either provider. Transport DTOs map into core types. Start with static checks for repository structure, manifests, CI/test declarations, and evidence-linked observations. Describe their exact coverage; no general security certification or whole-program correctness claim.
 
-When implementation starts, the intended maximum initial layout is `crates/audit-core/`, `crates/audit-host/`, and `desktop/` (with Tauri's conventional `src-tauri/`). Adapter drivers stay modules in audit-host. Do not create these directories until their phase needs them. Frontend framework and Git library remain open.
+When implementation starts, the intended maximum initial layout is `crates/audit-core/`, `crates/audit-host/`, and `desktop/` (with Tauri's conventional `src-tauri/`). Adapter drivers stay modules in audit-host. Do not create these directories until their phase needs them. React/TypeScript/Vite and git2 are selected in the implementation receipts.
 
 ## One audit from input to report
 
@@ -64,9 +66,14 @@ Each run writes into a unique private temporary directory, then atomically final
 
 ## Assistant and adapter boundaries
 
-**MCP serves published reports, not the filesystem.** Initial tools are `list_reports(cursor, limit)`, `get_report(report_id)`, and `get_evidence(report_id, evidence_id)`. They return bounded structured objects plus readable text. Evidence is limited to the referenced published bundle. Report IDs and cursors are untrusted input, not authorization. There is no shell, arbitrary file reader, audit-start, upload, or export tool. Native UI/local CLI owns those operations. Use `readOnlyHint: true` for these read tools; validate access on every call regardless of annotations.
+**MCP exposes registered workspace operations, never arbitrary filesystem access.** ADR-004 was explicitly amended for Phase 2B. The tools are `list_workspaces`, `get_workspace_summary`, `start_audit`, `get_audit_status`, and `get_audit_report`. Core Workspace registration/storage contracts are shared by desktop and headless modes; reader handles cannot register/select roots. The gateway owns session authorization and worker lifecycle; Core owns snapshot policy and evidence integrity. See [the wire/consent contract](gateway-contract.md).
 
-Local Claude Desktop can start stdio mode with explicit bundle access. ChatGPT uses a supported Secure MCP Tunnel or a reachable authenticated HTTPS Streamable HTTP endpoint. Claude remote connectors require a cloud-reachable endpoint. These are distinct configurations, not a promise that either website reads localhost directly. Private tunnel use does not require a remote audit runner, but the tunnel host must remain online. Host-specific rich UI, prompts, sampling, subscriptions, and search/fetch compatibility tools are deferred until a selected use case requires them. See [the source matrix](compatibility.md).
+All scopes default deny. Workspace grants allow only discovery, audit requests or report requests; they do not approve execution or publication. Exact audit requests require local application consent, then run a bounded fixed Core worker. Report publication requires approval of the exact frozen source-free metadata projection and releases it once. Other tool results contain approved workspace metadata/status only. `start_audit` and `get_audit_report` have readOnlyHint false because they create/consume consequential consent state. Annotations and host dialogs never authorize access. No evidence-content, shell, registration, upload or generic file tool is exposed.
+
+Each `audit-host mcp PROFILE` serves all registered roots for one stdio session; up to eight sessions share the profile. Their grants, control sockets and journals are isolated. A profile-wide worker lease serializes MCP audits. The desktop connects through an owner-only local control socket; its lifetime does not own the gateway. Closing host stdin shuts only that session and its active worker down; other sessions remain live. Closing/reopening desktop storage works while the gateway reads fresh registries; changes still need fresh explicit grants. No HTTP listener, tunnel client or host configuration is provisioned.
+
+Claude Desktop's documented local path is stdio; actual Orven host connectivity remains unverified. Official ChatGPT custom MCP supports a URL or Secure MCP Tunnel, subject to account/workspace policy. The tunnel can forward to stdio, but requires correct Platform/workspace associations and runtime credentials; current account eligibility is unknown. An authenticated remote HTTP boundary would need separate implementation before exposure. These are compatibility paths, not current connectivity claims. See [current official-source research](phase-2b-compatibility.md).
+
 
 Codex and Claude Code are optional **outbound analysis adapters**, separate from ChatGPT/Claude as inbound MCP clients. Initial candidate interfaces are Codex App Server over subprocess stdio and Claude Code's non-interactive structured output. Neither is rmcp's MCP protocol. No official native Rust Agent SDK is assumed. The desktop can invoke the headless helper for optional analysis rather than duplicating drivers. A missing executable, unsupported version, absent authentication, provider failure, or rejected budget leaves the deterministic report usable with analysis marked unavailable.
 
@@ -79,7 +86,7 @@ The threat model includes malicious repository files, prompt injection, compromi
 | Repository → core | Read immutable Git blobs; treat documentation/AGENTS.md as data. Do not load project plugins, execute config, follow tree symlinks/submodules, or resolve source URLs. Bound traversal, parser input, decompression, memory and runtime. Restrict Git metadata/object-store access to approved locations; reject alternate object stores or external gitdir paths unless separately authorized. |
 | WebView → Rust | Bundled assets only, restrictive CSP, sanitized Markdown with raw HTML disabled and no automatic remote resources. Explicitly scope capabilities and app commands to the intended window; no frontend shell/filesystem plugin permissions or remote-content IPC. Backend validates IDs and policy on every command. Tauri ACLs do not sandbox Rust. |
 | Store → assistant/provider | Default deny. Owner previews the exact redacted bundle, destination and allowed report scope before enabling access. Secret exclusions and scanning are defense in depth; explicit consent is still needed for source excerpts. MCP metadata, errors, logs and identifiers must not leak absolute paths or secrets. |
-| MCP caller → bundle | Stdio inherits only explicitly configured bundle scope under the OS user. HTTP requires TLS, valid issuer/audience/expiry/scopes, protected-resource discovery and OAuth-compatible authorization, plus per-report access checks. Use an established authorization provider; no bespoke identity service. Validate Origin when present, restrict Host, bound requests and rate-limit. Bind backend HTTP to loopback behind the selected gateway; never expose an unauthenticated repository endpoint. |
+| MCP caller → bundle | Stdio receives only session/workspace-scoped metadata and separately consented operations under the OS user. Private local control is trusted only within that same owner account. HTTP requires TLS, valid issuer/audience/expiry/scopes, protected-resource discovery and OAuth-compatible authorization, plus per-report access checks. Use an established authorization provider; no bespoke identity service. Validate Origin when present, restrict Host, bound requests and rate-limit. Bind backend HTTP to loopback behind the selected gateway; never expose an unauthenticated repository endpoint. |
 | Evidence → optional agent process | Untrusted text cannot grant tools. Launch a pinned/validated executable with structured arguments, isolated configuration/home and scratch workspace; disable repository/user hooks, skills, plugins and auto-discovery. No source checkout or inherited unrelated credentials. Deny tool execution and filesystem mutation outside scratch; enforce OS isolation and provider-only network egress, time/output/cost limits. Prompt instructions and CLI permission flags alone are insufficient. Keep adapter disabled until this is demonstrated on its target OS. |
 | Remote/import → local store | Explicit machine and repository authorization, authenticated transfer, commit/manifest comparison, schema/hash validation, bounded size, rejection of traversal and unsafe archive entries. Treat returned claims as remote-origin evidence. Never extract into the audited repository, merge worktrees, or overwrite a local run. |
 

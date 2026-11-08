@@ -1,5 +1,7 @@
 # Phase 1 implementation and validation
 
+Historical milestone receipt: [Phase 2B](phase-2b.md) records subsequent MCP/consent implementation, directory-handle hardening and watchdog tests. Its amended ADR-004 supersedes the former three-tool plan below; the earlier pass counts remain historical. Native manual interaction and packed-storage support remain open.
+
 Date: 2026-11-06. Target: macOS Apple Silicon (`aarch64-apple-darwin`), rustc/Cargo 1.98.0. This is a local committed-text inventory slice, not a general security scanner. No desktop UI, MCP endpoint, external model, remote runner, signing or release is implemented.
 
 ## Implemented boundary
