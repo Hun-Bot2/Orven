@@ -32,6 +32,8 @@ import { EvidenceViewer } from "./EvidenceViewer";
 import { ReportPage } from "./pages/ReportPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
 import { HistoryPage } from "./pages/HistoryPage";
+import { HandoffsPage } from "./pages/HandoffsPage";
+import type { GatewaySnapshot, AccessScope } from "./gateway-types";
 import { SecurityPage } from "./pages/SecurityPage";
 import type { Bootstrap, Report, RunListing, View } from "./types";
 const navigation = [
@@ -45,6 +47,77 @@ const navigation = [
 ] as const;
 const noRuns: RunListing = { runs: [], unavailable: 0, incomplete: 0 };
 export default function App() {
+  const [gateway, setGateway] = useState<GatewaySnapshot | null>(null);
+  const [gatewayError, setGatewayError] = useState("");
+  const gatewayGeneration = useRef(0);
+  const gatewayMutation = useRef(false);
+  const gatewaySession = useRef<string | undefined>(undefined);
+  async function refreshGateway(
+    target = gatewaySession.current,
+    force = false,
+  ) {
+    if (gatewayMutation.current && !force) return;
+    const token = ++gatewayGeneration.current;
+    try {
+      const response = await api.gatewaySnapshot(target);
+      if (token !== gatewayGeneration.current) return;
+      if (!response.ok) throw new Error(response.code);
+      if (target && response.snapshot?.session_id !== target)
+        throw new Error("Selected MCP connection unavailable");
+      gatewaySession.current = response.snapshot?.session_id;
+      setGateway(
+        response.snapshot
+          ? { ...response.snapshot, sessions: response.sessions ?? [] }
+          : null,
+      );
+      setGatewayError("");
+    } catch {
+      if (token === gatewayGeneration.current) {
+        setGateway(null);
+        setGatewayError(
+          "Standalone gateway unavailable; no live connection is verified.",
+        );
+      }
+    }
+  }
+  function selectGatewaySession(id: string) {
+    if (id === gatewaySession.current) return;
+    gatewaySession.current = id;
+    ++gatewayGeneration.current;
+    setGateway(null);
+    setGatewayError("");
+    void refreshGateway(id, true);
+  }
+  async function controlGateway(request: unknown, expectedSession?: string) {
+    const target = gatewaySession.current;
+    if (
+      gatewayMutation.current ||
+      !target ||
+      (expectedSession && expectedSession !== target)
+    )
+      return;
+    gatewayMutation.current = true;
+    const token = ++gatewayGeneration.current;
+    try {
+      const response = await api.gatewayControl({
+        operation: "for_session",
+        session_id: target,
+        request,
+      });
+      if (token !== gatewayGeneration.current) return;
+      if (!response.ok) throw new Error(response.code);
+      if (response.snapshot?.session_id !== target)
+        throw new Error("Selected MCP connection unavailable");
+      setGateway({ ...response.snapshot, sessions: response.sessions ?? [] });
+      setGatewayError("");
+    } catch (e) {
+      if (token === gatewayGeneration.current)
+        setGatewayError(e instanceof Error ? e.message : String(e));
+    } finally {
+      gatewayMutation.current = false;
+    }
+  }
+
   const [bootstrap, setBootstrap] = useState<Bootstrap>({
     projects: [],
     active_project_id: null,
@@ -56,6 +129,12 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const selectedRef = useRef<string | null>(null);
   const [view, setView] = useState<View>("reports");
+  useEffect(() => {
+    if (view !== "security" && view !== "handoffs") return;
+    void refreshGateway();
+    const timer = window.setInterval(() => void refreshGateway(), 2000);
+    return () => clearInterval(timer);
+  }, [view]);
   const [listing, setListing] = useState(noRuns);
   const [report, setReport] = useState<Report | null>(null);
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
@@ -115,7 +194,7 @@ export default function App() {
       }
     }
   }
-  function activate(id: string | null) {
+  function activate(id: string | null, runId?: string) {
     selectedRef.current = id;
     setSelected(id);
     ++generation.current;
@@ -126,7 +205,7 @@ export default function App() {
     setHistoryState(id ? "loading" : "unavailable");
     setLoading(false);
     setError("");
-    if (id) void refresh(id);
+    if (id) void refresh(id, runId);
   }
   useEffect(() => {
     if (!nativeAvailable && !testMode) return;
@@ -156,9 +235,9 @@ export default function App() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
-  async function switchProject(id: string) {
+  async function switchProject(id: string, runId?: string) {
     setModal(null);
-    activate(id);
+    activate(id, runId);
     try {
       selectionQueue.current = selectionQueue.current
         .catch(() => {})
@@ -230,6 +309,30 @@ export default function App() {
     onRun: () => {
       setCommit("");
       setModal("audit");
+    },
+  };
+  const gatewayProps = {
+    gateway,
+    gatewayError,
+    onRefreshGateway: () => void refreshGateway(),
+    onSelectGatewaySession: selectGatewaySession,
+    onAccess: (id: string, scope: AccessScope, sessionId: string) =>
+      void controlGateway(
+        {
+          operation: "set_access",
+          workspace_id: id,
+          scope,
+          session_id: sessionId,
+        },
+        sessionId,
+      ),
+    onRevoke: (id: string) =>
+      void controlGateway({ operation: "revoke", workspace_id: id }),
+    onDecision: (id: string, approve: boolean) =>
+      void controlGateway({ operation: "decide", request_id: id, approve }),
+    onRelatedReport: (wid: string, rid: string) => {
+      void switchProject(wid, rid);
+      setView("reports");
     },
   };
   const matches =
@@ -428,7 +531,9 @@ export default function App() {
           />
         )}
         {view === "history" && <HistoryPage {...pageProps} />}
-        {view === "security" && <SecurityPage {...pageProps} />}
+        {view === "security" && (
+          <SecurityPage {...pageProps} {...gatewayProps} />
+        )}
         {view === "overview" && (
           <>
             <PageHeading
@@ -529,16 +634,7 @@ export default function App() {
           </>
         )}
         {view === "handoffs" && (
-          <>
-            <PageHeading eyebrow="ASSISTANT WORKFLOWS" title="Context Handoffs">
-              A handoff requires an explicit, previewed report publication
-              boundary.
-            </PageHeading>
-            <EmptyState title="Handoffs are not available in Phase 2A">
-              No chat has been created and no report has been sent. ChatGPT and
-              Claude integration remains a later milestone.
-            </EmptyState>
-          </>
+          <HandoffsPage {...pageProps} {...gatewayProps} />
         )}
       </main>
       {evidence && report && (

@@ -170,9 +170,14 @@ test("Option A report, history, security and evidence render without fictitious 
     .getByRole("navigation", { name: "Workspace navigation" })
     .getByRole("button", { name: "Connections & Security" })
     .click();
-  await expect(page.getByText("Not configured", { exact: true })).toHaveCount(
-    2,
-  );
+  await expect(
+    page.getByText("Gateway unavailable. No live session state is available."),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Remote HTTP and provider connectivity are not established by this local session.",
+    ),
+  ).toBeVisible();
   await expect(page.getByText("OS ISOLATION")).toBeVisible();
   await page.screenshot({ path: "test-results/phase2a-security.png" });
   await page

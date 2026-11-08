@@ -1,0 +1,78 @@
+.gateway-page .gateway-body {
+  padding: 16px 20px;
+}
+.gateway-page .gateway-body p {
+  font: 13px/19px var(--sans);
+  color: var(--secondary);
+  overflow-wrap: anywhere;
+}
+.gateway-page .gateway-actions,
+.gateway-page .gateway-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gateway-page .gateway-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font: 11px/16px var(--mono);
+  color: var(--muted);
+}
+.gateway-page .gateway-briefs {
+  display: grid;
+  gap: 20px;
+}
+.gateway-page pre,
+.gateway-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow: auto;
+  background: var(--rail);
+  border: 1px solid var(--line);
+  padding: 12px;
+  font: 12px/18px var(--mono);
+}
+.gateway-page .gateway-digest {
+  overflow-wrap: anywhere;
+}
+.gateway-permissions {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  padding: 16px;
+}
+.gateway-permissions label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.gateway-permissions legend {
+  font-weight: 600;
+}
+
+.gateway-connection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  font: 13px/19px var(--sans);
+  color: var(--secondary);
+}
+.gateway-connection select {
+  min-width: 280px;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+.gateway-connection select:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}

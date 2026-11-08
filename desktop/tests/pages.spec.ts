@@ -134,8 +134,20 @@ test("page boundary: saved reports do not imply connected assistants or events",
   await navigate(page, "Connections & Security");
   const security = page.locator(".security-page");
   await expect(
-    security.getByText("Not configured", { exact: true }),
-  ).toHaveCount(2);
+    security.getByText(
+      "Gateway unavailable. No live session state is available.",
+    ),
+  ).toBeVisible();
+  await expect(
+    security.getByText(
+      "Remote HTTP and provider connectivity are not established by this local session.",
+    ),
+  ).toBeVisible();
+  await expect(
+    security.getByText(
+      "Permissions unavailable while the gateway cannot be reached.",
+    ),
+  ).toBeVisible();
   await expect(security).toContainText("Unverified");
   await expect(security).not.toContainText(
     /\bconnected\b|zero.network|access ledger|events recorded/i,

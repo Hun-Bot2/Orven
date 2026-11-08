@@ -23,6 +23,20 @@ async function call<T>(
   return invoke<T>(command, args);
 }
 export const api = {
+  gatewaySnapshot: (sessionId?: string) =>
+    call<{
+      ok: boolean;
+      code: string;
+      snapshot: import("./gateway-types").GatewaySnapshot | null;
+      sessions: import("./gateway-types").GatewaySession[];
+    }>("gateway_snapshot", { sessionId }),
+  gatewayControl: (request: unknown) =>
+    call<{
+      ok: boolean;
+      code: string;
+      snapshot: import("./gateway-types").GatewaySnapshot | null;
+      sessions: import("./gateway-types").GatewaySession[];
+    }>("gateway_control", { request }),
   bootstrap: () => call<Bootstrap>("bootstrap"),
   register: () => call<Bootstrap | null>("register_project"),
   select: (projectId: string) =>
