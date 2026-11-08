@@ -1,0 +1,35 @@
+:root {
+  color-scheme: light;
+  --canvas: #f9f9f8;
+  --paper: #fff;
+  --rail: #f3f4f3;
+  --subtle: #eeeeed;
+  --ink: #1a1c1c;
+  --secondary: #46464b;
+  --muted: #727279;
+  --line: #dfdfe1;
+  --line-strong: #c7c6cb;
+  --blue: #2252ca;
+  --green: #16794c;
+  --green-bg: #ebf7ee;
+  --red: #ba1a1a;
+  --red-bg: #fdf2f2;
+  --amber: #995605;
+  --amber-bg: #fef8ec;
+  --blue-bg: #eef2fd;
+  --sans:
+    "Geist", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+    sans-serif;
+  --serif: "Newsreader", "Iowan Old Style", "AppleMyungjo", serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  --rail-width: 240px;
+  --toolbar-height: 54px;
+  --inspector-width: 340px;
+  --status-height: 26px;
+  --space-xs: 4px;
+  --space-sm: 6px;
+  --space-md: 12px;
+  --space-lg: 20px;
+  --space-xl: 32px;
+  --radius: 3px;
+}
