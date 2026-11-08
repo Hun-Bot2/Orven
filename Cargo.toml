@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/audit-core", "crates/audit-host"]
+members = ["crates/audit-core", "crates/audit-host", "desktop/src-tauri"]
 resolver = "3"
 
 [workspace.package]
