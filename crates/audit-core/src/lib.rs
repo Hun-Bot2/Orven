@@ -1,6 +1,8 @@
-//! Offline, committed-snapshot inspection. Never invokes repository commands.
 #![forbid(unsafe_code)]
+pub mod gateway;
 pub mod workspace;
+// Offline, committed-snapshot inspection. Never invokes repository commands.
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -244,9 +246,10 @@ fn excluded(path: &str) -> Option<&'static str> {
 }
 /// Operator-owned registration; the returned handle contains no model-selected path.
 pub struct RegisteredRepository {
-    root: PathBuf,
     store: PathBuf,
     id: String,
+    root_dir: cap_std::fs::Dir,
+    store_dir: cap_std::fs::Dir,
 }
 impl RegisteredRepository {
     pub fn register(root: &Path, store: &Path) -> Result<Self> {
@@ -260,13 +263,23 @@ impl RegisteredRepository {
             return Err(deny("directories required"));
         }
         private_directory(&store)?;
+        let root_dir = cap_std::fs::Dir::open_ambient_dir(&root, cap_std::ambient_authority())?;
+        let store_dir = cap_std::fs::Dir::open_ambient_dir(&store, cap_std::ambient_authority())?;
         Ok(Self {
-            root,
+            root_dir,
+            store_dir,
             store,
             id: Uuid::new_v4().to_string(),
         })
     }
     pub fn audit(&self, commit: &str) -> Result<Report> {
+        self.audit_pinned(commit, None)
+    }
+    /// Bind MCP approval to the opened root and Git directory, not an ambient path.
+    pub fn audit_authorized(&self, commit: &str, identity: &str) -> Result<Report> {
+        self.audit_pinned(commit, Some(identity))
+    }
+    fn audit_pinned(&self, commit: &str, expected: Option<&str>) -> Result<Report> {
         if commit.len() != 40 || !commit.bytes().all(|c| c.is_ascii_hexdigit()) {
             return Err(deny("full SHA-1 commit object ID required"));
         }
@@ -284,13 +297,28 @@ impl RegisteredRepository {
         }) {
             return Err(deny("Git environment overrides unsupported"));
         }
-        let git = self.root.join(".git");
-        if !fs::symlink_metadata(&git)?.file_type().is_dir() {
+        if !self.root_dir.symlink_metadata(".git")?.is_dir() {
             return Err(deny("ordinary in-root .git directory required"));
         }
-        if git.join("commondir").exists()
-            || git.join("objects/info/alternates").exists()
-            || git.join("objects/info/http-alternates").exists()
+        let git = self.root_dir.open_dir(".git")?;
+        if let Some(expected) = expected {
+            use std::os::unix::fs::MetadataExt;
+            let root = self.root_dir.try_clone()?.into_std_file().metadata()?;
+            let meta = git.try_clone()?.into_std_file().metadata()?;
+            if format!(
+                "{}:{}:{}:{}",
+                root.dev(),
+                root.ino(),
+                meta.dev(),
+                meta.ino()
+            ) != expected
+            {
+                return Err(deny("approved root changed"));
+            }
+        }
+        if git.symlink_metadata("commondir").is_ok()
+            || git.symlink_metadata("objects/info/alternates").is_ok()
+            || git.symlink_metadata("objects/info/http-alternates").is_ok()
         {
             return Err(deny("external Git storage unsupported"));
         }
@@ -298,8 +326,8 @@ impl RegisteredRepository {
         let mut count = 0;
         let mut disk_bytes = 0;
         inspect_storage(&git, 0, &mut count, &mut disk_bytes, start)?;
-        // Standalone object database: never reads repository config, index, refs or hooks.
-        let odb = validate_loose_objects(&git.join("objects"), start)?;
+        // Capability-relative reads cannot escape the opened Git directory during swaps.
+        let odb = validate_loose_objects(&git.open_dir("objects")?, start)?;
         let repo = git2::Repository::from_odb(odb)?;
         let commit_id = git2::Oid::from_str(commit)?;
         check_object(&repo, commit_id, git2::ObjectType::Commit, MAX_FILE)?;
@@ -365,19 +393,29 @@ impl RegisteredRepository {
         if report.repository_id != self.id {
             return Err(deny("repository mismatch"));
         }
-        private_directory(&self.store)?;
-        let pending = self.store.join(format!(".incomplete-{}", report.run_id));
+        use cap_std::fs::{DirBuilderExt, OpenOptionsExt};
+        use std::io::Write;
+        let pending = format!(".incomplete-{}", report.run_id);
         let final_dir = self.store.join(&report.run_id);
-        if final_dir.exists() {
+        if self.store_dir.symlink_metadata(&report.run_id).is_ok() {
             return Err(deny("run already exists"));
         }
-        create_private(&pending)?;
-        write_private(
-            &pending.join("report.json"),
-            &serde_json::to_vec_pretty(report)?,
-        )?;
-        write_private(&pending.join("report.md"), report.markdown()?.as_bytes())?;
-        fs::rename(&pending, &final_dir)?;
+        let mut builder = cap_std::fs::DirBuilder::new();
+        builder.mode(0o700);
+        self.store_dir.create_dir_with(&pending, &builder)?;
+        let dir = self.store_dir.open_dir(&pending)?;
+        for (name, bytes) in [
+            ("report.json", serde_json::to_vec_pretty(report)?),
+            ("report.md", report.markdown()?.into_bytes()),
+        ] {
+            let mut options = cap_std::fs::OpenOptions::new();
+            options.write(true).create_new(true).mode(0o600);
+            let mut f = dir.open_with(name, &options)?;
+            f.write_all(&bytes)?;
+            f.sync_all()?;
+        }
+        self.store_dir
+            .rename(&pending, &self.store_dir, &report.run_id)?;
         Ok(final_dir)
     }
 }
@@ -392,24 +430,8 @@ fn private_directory(path: &Path) -> Result<()> {
     }
     Ok(())
 }
-fn create_private(path: &Path) -> Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
-    fs::DirBuilder::new().mode(0o700).create(path)?;
-    Ok(())
-}
-fn write_private(path: &Path, bytes: &[u8]) -> Result<()> {
-    use std::{io::Write, os::unix::fs::OpenOptionsExt};
-    let mut f = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(path)?;
-    f.write_all(bytes)?;
-    f.sync_all()?;
-    Ok(())
-}
 fn inspect_storage(
-    path: &Path,
+    dir: &cap_std::fs::Dir,
     depth: usize,
     count: &mut usize,
     bytes: &mut u64,
@@ -418,18 +440,19 @@ fn inspect_storage(
     if depth > 32 || start.elapsed().as_secs() > 10 {
         return Err(deny("metadata traversal limit"));
     }
-    let m = fs::symlink_metadata(path)?;
-    *count += 1;
-    *bytes = bytes.saturating_add(m.len());
-    if *count > 20_000 || *bytes > 128 * 1024 * 1024 {
-        return Err(deny("metadata storage limit"));
-    }
-    if m.file_type().is_symlink() || (!m.is_dir() && !m.is_file()) {
-        return Err(deny("unsafe Git storage entry"));
-    }
-    if m.is_dir() {
-        for entry in fs::read_dir(path)? {
-            inspect_storage(&entry?.path(), depth + 1, count, bytes, start)?;
+    for entry in dir.entries()? {
+        let name = entry?.file_name();
+        let m = dir.symlink_metadata(&name)?;
+        *count += 1;
+        *bytes = bytes.saturating_add(m.len());
+        if *count > 20_000 || *bytes > 128 * 1024 * 1024 {
+            return Err(deny("metadata storage limit"));
+        }
+        if m.file_type().is_symlink() || (!m.is_dir() && !m.is_file()) {
+            return Err(deny("unsafe Git storage entry"));
+        }
+        if m.is_dir() {
+            inspect_storage(&dir.open_dir(name)?, depth + 1, count, bytes, start)?;
         }
     }
     Ok(())
@@ -554,12 +577,15 @@ fn check_object(
 
 // macOS rejects RLIMIT_AS. Bound expansion before libgit2 receives any object;
 // packed/delta storage needs a separately verified resource boundary.
-fn validate_loose_objects(objects: &Path, start: Instant) -> Result<git2::Odb<'static>> {
+fn validate_loose_objects(
+    objects: &cap_std::fs::Dir,
+    start: Instant,
+) -> Result<git2::Odb<'static>> {
     use std::io::Read;
     let odb = git2::Odb::new()?;
     odb.add_new_mempack_backend(1000)?;
     let mut total = 0usize;
-    for directory in fs::read_dir(objects)? {
+    for directory in objects.entries()? {
         let directory = directory?;
         let name = directory.file_name();
         let name = name
@@ -569,7 +595,7 @@ fn validate_loose_objects(objects: &Path, start: Instant) -> Result<git2::Odb<'s
             continue;
         }
         if name == "pack" {
-            if fs::read_dir(directory.path())?.next().is_some() {
+            if objects.open_dir(name)?.entries()?.next().is_some() {
                 return Err(deny(
                     "packed object storage unsupported until memory confinement is verified",
                 ));
@@ -582,7 +608,8 @@ fn validate_loose_objects(objects: &Path, start: Instant) -> Result<git2::Odb<'s
         {
             return Err(deny("invalid loose object directory"));
         }
-        for entry in fs::read_dir(directory.path())? {
+        let object_dir = objects.open_dir(name)?;
+        for entry in object_dir.entries()? {
             if start.elapsed().as_secs() > 10 {
                 return Err(deny("object preflight deadline"));
             }
@@ -594,7 +621,7 @@ fn validate_loose_objects(objects: &Path, start: Instant) -> Result<git2::Odb<'s
             if filename.len() != 38 || !filename.bytes().all(|b| b.is_ascii_hexdigit()) {
                 return Err(deny("invalid object filename"));
             }
-            let file = fs::File::open(entry.path())?;
+            let file = object_dir.open(filename)?;
             let mut decoded = Vec::new();
             flate2::read::ZlibDecoder::new(file.take(128 * 1024 * 1024))
                 .take((MAX_FILE + 128 + 1) as u64)

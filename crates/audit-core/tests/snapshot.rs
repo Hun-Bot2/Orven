@@ -366,3 +366,31 @@ fn ignores_git_config_includes_and_never_runs_hooks() {
     assert!(!sentinel.exists());
     assert_eq!(before, contents(&f.root));
 }
+
+#[test]
+fn approved_identity_and_pinned_store_survive_path_replacement_safely() {
+    use std::os::unix::fs::MetadataExt;
+    let f = Fixture::new(&[("README.md", b"pinned fixture\n")]);
+    let root = fs::metadata(&f.root).unwrap();
+    let git = fs::metadata(f.root.join(".git")).unwrap();
+    let approved = format!("{}:{}:{}:{}", root.dev(), root.ino(), git.dev(), git.ino());
+    let registered = f.registered();
+    assert!(registered.audit_authorized(&f.commit, &approved).is_ok());
+    fs::rename(f.root.join(".git"), f.root.join("previous-git")).unwrap();
+    fs::create_dir(f.root.join(".git")).unwrap();
+    assert!(registered.audit_authorized(&f.commit, &approved).is_err());
+    fs::remove_dir(f.root.join(".git")).unwrap();
+    fs::rename(f.root.join("previous-git"), f.root.join(".git")).unwrap();
+    let report = registered.audit_authorized(&f.commit, &approved).unwrap();
+    let pinned_store = f.store.with_file_name("original-store");
+    fs::rename(&f.store, &pinned_store).unwrap();
+    fs::create_dir(&f.store).unwrap();
+    registered.save(&report).unwrap();
+    assert!(
+        pinned_store
+            .join(&report.run_id)
+            .join("report.json")
+            .is_file()
+    );
+    assert!(!f.store.join(&report.run_id).exists());
+}

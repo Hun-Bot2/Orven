@@ -6,9 +6,16 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+cap-std = "=4.0.3"
 audit-core = { path = "../audit-core" }
 serde_json = "1"
+sha2 = "0.10"
 nix = { version = "0.31.3", default-features = false, features = ["resource"] }
+
+rmcp = { version = "=3.9.0", default-features = false, features = ["server", "transport-io"] }
+tokio = { version = "1", features = ["rt-multi-thread", "io-std", "time"] }
+serde = { version = "1", features = ["derive"] }
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 git2 = { version = "0.21", default-features = false }

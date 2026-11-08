@@ -83,3 +83,39 @@ fn cli_creates_report_from_immutable_snapshot_and_rejects_invalid_commit() {
     assert_eq!(before_store, files(&store));
     assert_eq!(before, files(&root));
 }
+
+#[test]
+fn gateway_worker_requires_parent_lease_and_stops_when_it_is_closed() {
+    use std::{
+        process::Stdio,
+        time::{Duration, Instant},
+    };
+    let temp = tempfile::tempdir().unwrap();
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_audit-host"))
+        .args([
+            "--gateway-worker",
+            "audit",
+            temp.path().to_str().unwrap(),
+            &"a".repeat(40),
+            temp.path().to_str().unwrap(),
+            "unapproved-identity",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    std::thread::sleep(Duration::from_millis(100));
+    assert!(child.try_wait().unwrap().is_none());
+    drop(child.stdin.take());
+    let started = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            assert!(!status.success());
+            break;
+        }
+        assert!(started.elapsed() < Duration::from_secs(3));
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 0);
+}
