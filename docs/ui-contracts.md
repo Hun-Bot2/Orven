@@ -1,0 +1,27 @@
+# Phase 2A shared UI contracts
+
+Approved implementation baseline, 2026-11-08. Lead independently viewed all four outer Option A PNGs and checked the ZIP HTML/design note against Terra's [extraction](design-reference.md). All references are Option A. The HTML's 240px rail and 340px inspector are the unscaled layout baseline; screenshots include presentation frames that are not product chrome. The toolbar is deliberately 54px (rather than the HTML's cramped 38px) to meet the requested spacious macOS presentation. Native window controls overlay the toolbar with a scoped native drag region, never simulated circles.
+
+## Ownership and files
+
+One React/TypeScript application under `desktop/src`, Vite build, plain CSS and bundled local fonts. No router/state library or UI framework. `App.tsx`, `api.ts`, `types.ts`, `components.tsx`, `tokens.css` and `styles.css` belong to lead. Page-local components live in `pages/`; their CSS is scoped by page class. Native implementation lives in conventional `desktop/src-tauri/`; the existing Rust core/evidence contract is authoritative. Dependencies are selected/pinned by lead only.
+
+Terra owns only `pages/HistoryPage.tsx`, `pages/SecurityPage.tsx`, `pages/pages.css` and page-specific tests/fixtures explicitly assigned later. It may import shared contracts, never modify global tokens, shell, navigation, IPC, capabilities, Rust or dependency files. No shared-file concurrent edits.
+
+## Visual and component rules
+
+`tokens.css` is authoritative. Use Geist UI 13/19px, Newsreader title 30/38px and prose 15/24px, JetBrains Mono metadata 11/16px and code 12/18px, with system Korean fallbacks. All fonts are bundled for offline use. UI icons are Lucide, 16px/1.5 stroke in navigation, 14px controls, 18px dialog actions. Buttons center icons and text on the same flex line; table numbers are tabular. Layout uses 4/6/12/16/20/32px increments, 1px rules, 3px control corners, flat paper panels. Main editorial inset 40px; compact screens 24px. Responsive inspector overlays under 1100px; navigation remains usable at 980px minimum native width.
+
+Shared exports from `components.tsx`: Badge (neutral/success/warning/danger/info), Button, PageHeading, Panel, EmptyState, Metric, Distribution, Table, Dialog, OpenReport, shortId, timestamp. Use these for tables/statuses/headers; no page-local lookalikes. `Table` supplies overflow, caption and header semantics. Dialog owns native modal focus containment/Escape/focus restoration. Evidence viewer and workspace switcher belong to lead. Do not use raw HTML injection. React escapes repository text; code is plain text with bounded rendering, never executable markup.
+
+## Data and page behavior
+
+All pages accept `PageProps` from `types.ts`: selected project, scoped run summaries, explicit loading/ready/unavailable history state, selected validated report, global busy flag, onSelectRun/onEvidence/onRun callbacks. They must not call Tauri or access files directly. Dates are actual report timestamps; every chart derives from run/evidence data. Exclusion scopes are not a file-coverage denominator: report bars describe hash-linked evidence records, history bars use a common captured-record count scale, and exclusion counts are shown separately. Missing report means an explicit empty state. Inventory observations are informational, never critical vulnerabilities or passing security assertions. Execution is skipped; model analysis unavailable. Do not infer certainty, compliance, network-byte counts, filesystem mutation counters or provider connectivity.
+
+History selects runs via callback and derives snapshot counts/bars from the supplied summaries. Comparisons require real reports and compare captured path/content identity, not invented Git/AST deltas. Security shows implemented policy separately from unverified OS isolation, and disabled/unconfigured ChatGPT/Claude adapters; no fake access ledger. MCP connection creation, handoffs, security-event history and remote operation remain unavailable in Phase 2A.
+
+Frontend transport is a typed command boundary. Production uses Tauri only; plain browser has an explicit native-required state. Browser tests inject an explicitly labeled synthetic test bridge in development only. No demo project/report fallback appears in the installed app. Switching projects clears report/evidence immediately; request generations reject stale responses. Only one audit runs per desktop process; completion cannot select a report in another workspace. Native registry persists real roots and opaque project/run associations; only native folder selection registers a repository. Rust revalidates window identity, registered project scope, report IDs/content and storage limits on each command. Frontend never passes arbitrary repository/report file paths to auditing or reading commands.
+
+## Scope and evidence
+
+2A covers shell, real project registration/switching, audit execution using existing core, stored reports/history and evidence navigation. This is the local part of roadmap Phase 2. MCP serving/publication/authentication and actual host interoperability are Phase 2B; no full Phase 2 completion claim until those gates pass. Browser screenshots validate rendered layout and interactions against synthetic fixtures; native screenshots and backend tests are separately reported.

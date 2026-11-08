@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-08",
+  "database": {
+    "advisory-count": 1422,
+    "last-commit": "309392b18f6b17022f82c701f300433126901068",
+    "last-updated": "2026-11-06T16:34:32+01:00"
+  },
+  "dependency_count": 425,
+  "vulnerabilities": 0,
+  "warnings": [
+    {
+      "kind": "unmaintained",
+      "package": "proc-macro-error",
+      "version": "1.0.4",
+      "advisory": "RUSTSEC-2024-0370",
+      "title": "proc-macro-error is unmaintained"
+    },
+    {
+      "kind": "unsound",
+      "package": "glib",
+      "version": "0.18.5",
+      "advisory": "RUSTSEC-2024-0429",
+      "title": "Unsoundness in `Iterator` and `DoubleEndedIterator` impls for `glib::VariantStrIter`"
+    }
+  ],
+  "target_graph": "cargo tree --target aarch64-apple-darwin --invert glib and proc-macro-error: neither present"
+}
