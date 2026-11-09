@@ -2707,6 +2707,7 @@ name = "orven-desktop"
 version = "0.2.0"
 dependencies = [
  "audit-core",
+ "base64 0.22.1",
  "git2",
  "reqwest",
  "security-framework",

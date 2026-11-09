@@ -298,7 +298,9 @@ impl Account {
         if !profile.validate() {
             return Err("Backend profile invalid".into());
         }
-        let avatar_data_url = self.backend.avatar(&profile.avatar_url);
+        let avatar_data_url = profile
+            .avatar_request_url()
+            .and_then(|url| self.backend.avatar(&url));
         Ok(AccountView {
             status: "authenticated",
             profile: Some(profile),
@@ -359,35 +361,66 @@ fn revoke(credential: &str) -> Result<(), String> {
         Err("Cannot revoke desktop session; retry sign out".into())
     }
 }
+const AVATAR_LIMIT: usize = 262_144;
 fn avatar(url: &str) -> Option<String> {
-    use std::fmt::Write;
-    // Only called after Profile::validate fixed the host and numeric account path.
-    let response = client().ok()?.get(url).send().ok()?;
+    match fetch_avatar(url) {
+        Ok(data) => Some(data),
+        Err(reason) => {
+            // Fixed reasons only: never log account IDs, URLs, response bodies or credentials.
+            eprintln!("orven_avatar_unavailable reason={reason}");
+            None
+        }
+    }
+}
+fn fetch_avatar(url: &str) -> Result<String, &'static str> {
+    // Only called with the Core-validated profile URL; no cookies or bearer token.
+    let response = client()
+        .map_err(|_| "client_unavailable")?
+        .get(url)
+        .header(
+            reqwest::header::ACCEPT,
+            "image/png,image/jpeg,image/webp,image/gif",
+        )
+        .send()
+        .map_err(|_| "network_error")?;
     if !response.status().is_success() {
-        return None;
+        return Err("http_status_rejected");
     }
     let mime = response
         .headers()
-        .get(reqwest::header::CONTENT_TYPE)?
-        .to_str()
-        .ok()?
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|header| header.to_str().ok())
+        .ok_or("missing_content_type")?
         .split(';')
-        .next()?
-        .to_owned();
-    if !["image/png", "image/jpeg"].contains(&mime.as_str()) {
-        return None;
-    }
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
     let mut bytes = Vec::new();
-    response.take(262_145).read_to_end(&mut bytes).ok()?;
-    if bytes.len() > 262_144 {
-        return None;
+    response
+        .take((AVATAR_LIMIT + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "body_unavailable")?;
+    avatar_data_uri(&mime, &bytes)
+}
+fn avatar_data_uri(mime: &str, bytes: &[u8]) -> Result<String, &'static str> {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    if bytes.len() > AVATAR_LIMIT {
+        return Err("image_too_large");
     }
-    // Percent-encoded data URI avoids exposing a new network capability to the WebView.
-    let mut data = format!("data:{mime},");
-    for byte in bytes {
-        write!(&mut data, "%{byte:02X}").ok()?;
+    let matches = match mime {
+        "image/png" => bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
+        "image/jpeg" => bytes.starts_with(b"\xff\xd8\xff"),
+        "image/gif" => bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a"),
+        "image/webp" => bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"),
+        _ => return Err("unsupported_image_type"),
+    };
+    if !matches {
+        return Err("invalid_image_signature");
     }
-    Some(data)
+    // Standard binary image encoding works across Chrome and the native WKWebView.
+    // The WebView still receives no network capability, URL or credential.
+    Ok(format!("data:{mime};base64,{}", STANDARD.encode(bytes)))
 }
 #[cfg(target_os = "macos")]
 fn read_credential() -> Result<Option<String>, String> {
@@ -506,6 +539,46 @@ mod tests {
         }
     }
     #[test]
+    fn avatar_encoding_accepts_raster_formats_and_rejects_unsafe_bodies() {
+        use base64::{Engine, engine::general_purpose::STANDARD};
+        for (mime, bytes) in [
+            ("image/png", b"\x89PNG\r\n\x1a\n".as_slice()),
+            ("image/jpeg", b"\xff\xd8\xff".as_slice()),
+            ("image/gif", b"GIF89a".as_slice()),
+            ("image/webp", b"RIFF1234WEBP".as_slice()),
+        ] {
+            let data = avatar_data_uri(mime, bytes).unwrap();
+            assert!(data.starts_with(&format!("data:{mime};base64,")));
+            assert_eq!(
+                STANDARD.decode(data.split_once(',').unwrap().1).unwrap(),
+                bytes
+            );
+        }
+        assert_eq!(
+            avatar_data_uri("image/svg+xml", b"<svg/>"),
+            Err("unsupported_image_type")
+        );
+        assert_eq!(
+            avatar_data_uri("image/png", b"<html>"),
+            Err("invalid_image_signature")
+        );
+        assert_eq!(
+            avatar_data_uri("image/png", &[]),
+            Err("invalid_image_signature")
+        );
+        assert_eq!(
+            avatar_data_uri("image/png", &vec![0; AVATAR_LIMIT + 1]),
+            Err("image_too_large")
+        );
+    }
+    #[test]
+    #[ignore = "Opt-in public GitHub CDN request; no user credential or Keychain access"]
+    fn public_github_avatar_fetch() {
+        let profile = fixture_profile();
+        let data = fetch_avatar(&profile.avatar_request_url().unwrap()).unwrap();
+        assert!(data.starts_with("data:image/") && data.contains(";base64,"));
+    }
+    #[test]
     fn placeholder_or_unavailable_backend_cannot_start_login() {
         assert!(valid_auth_probe(
             401,
@@ -580,6 +653,20 @@ mod tests {
         assert_eq!(app.restore().unwrap().status, "expired");
         assert!(fixture.lock().unwrap().credential.is_none());
     }
+    // The listener is nonblocking: OS socket readiness need not coincide with write().
+    fn poll_callback(app: &mut Account) -> Result<AccountView, String> {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let result = app.poll();
+            if result.as_ref().is_ok_and(|view| view.status == "waiting")
+                && Instant::now() < deadline
+            {
+                std::thread::sleep(Duration::from_millis(5));
+                continue;
+            }
+            return result;
+        }
+    }
     #[test]
     fn actual_loopback_binds_state_and_never_serializes_credentials() {
         let fixture = Arc::new(Mutex::new(Fixture::default()));
@@ -597,7 +684,7 @@ mod tests {
         assert_eq!(app.poll().unwrap().status, "waiting");
         let mut good = std::net::TcpStream::connect((std::net::Ipv4Addr::LOCALHOST, port)).unwrap();
         write!(good, "GET /orven-auth/callback?code={code}&state={state} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n").unwrap();
-        let view = app.poll().unwrap();
+        let view = poll_callback(&mut app).unwrap();
         assert_eq!(view.status, "authenticated");
         assert!(fixture.lock().unwrap().credential.is_some());
         assert!(app.pending.is_none());
@@ -633,7 +720,7 @@ mod tests {
             pending.port
         )
         .unwrap();
-        assert!(app.poll().is_err());
+        assert!(poll_callback(&mut app).is_err());
         assert!(fixture.lock().unwrap().credential.is_none());
         assert!(fixture.lock().unwrap().revoked);
     }

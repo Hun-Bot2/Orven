@@ -110,6 +110,12 @@ pub struct Profile {
     pub avatar_url: String,
 }
 impl Profile {
+    /// Only the verified account may supply the fixed-host, bounded-size avatar URL.
+    pub fn avatar_request_url(&self) -> Option<String> {
+        self.validate()
+            .then(|| format!("{}&s=128", self.avatar_url))
+    }
+
     pub fn validate(&self) -> bool {
         uuid::Uuid::parse_str(&self.user_id).is_ok()
             && self
@@ -183,8 +189,13 @@ mod tests {
             avatar_url: "https://avatars.githubusercontent.com/u/42?v=4".into(),
         };
         assert!(profile.validate());
+        assert_eq!(
+            profile.avatar_request_url().as_deref(),
+            Some("https://avatars.githubusercontent.com/u/42?v=4&s=128")
+        );
         profile.avatar_url = "https://attacker.example/avatar".into();
         assert!(!profile.validate());
+        assert!(profile.avatar_request_url().is_none());
         profile.avatar_url = "https://avatars.githubusercontent.com/u/42?v=4".into();
         profile.username = "<script>".into();
         assert!(!profile.validate());
