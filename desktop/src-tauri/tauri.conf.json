@@ -34,9 +34,7 @@
       "capabilities": [
         {
           "identifier": "main-local",
-          "windows": [
-            "main"
-          ],
+          "windows": ["main"],
           "permissions": [
             "allow-bootstrap",
             "allow-register-project",
@@ -58,6 +56,10 @@
     }
   },
   "bundle": {
-    "active": false
+    "active": true,
+    "targets": ["app", "dmg"],
+    "macOS": {
+      "signingIdentity": "-"
+    }
   }
 }

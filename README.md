@@ -83,3 +83,7 @@ separate live checks. MCP OAuth and cloud MCP tools are not implemented by this 
 The [desktop UI refinement audit](docs/ui-refinement/README.md) records the current
 white-first visual system, shared toolbar/settings account state, before/after
 screenshots, accessibility/contrast receipts and the remaining native visual gate.
+
+For local release `.app` and `.dmg` artifacts, run `npm run package:macos` from
+`desktop/`. See [macOS packaging and verification](docs/macos-packaging.md) for output
+paths, ad-hoc signing and the remaining native/distribution gates.
