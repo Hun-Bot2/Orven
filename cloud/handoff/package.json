@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.6.0",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12"
+  }
+}
