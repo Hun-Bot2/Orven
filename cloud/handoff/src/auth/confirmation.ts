@@ -1,9 +1,23 @@
+import { z } from "zod/v4";
+
+const callbackSchema = z
+  .string()
+  .regex(/^http:\/\/127\.0\.0\.1:\d{1,5}\/orven-auth\/callback$/)
+  .refine((value) => {
+    const port = Number(/^http:\/\/127\.0\.0\.1:(\d{1,5})\//.exec(value)?.[1]);
+    return port >= 1024 && port <= 65535;
+  });
+
 // Presentation only. The caller must verify the browser user and bound desktop flow.
 export function confirmationPage(
   username: string,
   avatarUrl: string,
   flowId: string,
+  redirectUri: string,
 ): Response {
+  const callback = callbackSchema.safeParse(redirectUri);
+  if (!callback.success)
+    throw new Error("Invalid desktop callback configuration");
   // Escape at the HTML boundary, even though the caller validates these values.
   const escape = (value: string) =>
     value.replace(
@@ -38,15 +52,17 @@ export function confirmationPage(
     </dialog>
     <main id="cancelled" hidden tabindex="-1"><h1>Sign-in not completed</h1><p>Close this tab and return to Orven to cancel or restart sign-in.</p></main>
     <noscript><p>JavaScript is required to display the confirmation dialog. Return to Orven to cancel sign-in.</p></noscript>
-    <script nonce="${nonce}">const avatar=document.querySelector('.avatar img');const hideAvatar=()=>{avatar.hidden=true};avatar.addEventListener('error',hideAvatar);if(avatar.complete&&avatar.naturalWidth===0)hideAvatar();const dialog=document.getElementById('confirmation');dialog.addEventListener('close',()=>{const message=document.getElementById('cancelled');message.hidden=false;message.focus()});dialog.showModal();</script>
+    <script nonce="${nonce}">const avatar=document.querySelector('.avatar img');const hideAvatar=()=>{avatar.hidden=true};avatar.addEventListener('error',hideAvatar);if(avatar.complete&&avatar.naturalWidth===0)hideAvatar();const dialog=document.getElementById('confirmation');dialog.addEventListener('close',()=>{const message=document.getElementById('cancelled');message.hidden=false;message.focus()});const approval=document.querySelector('form[action="/auth/desktop/approve"]');approval.addEventListener('submit',()=>{const button=approval.querySelector('button');button.disabled=true;button.textContent='Returning to Orven…'});dialog.showModal();</script>
   </body></html>`,
     {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store",
-        "Referrer-Policy": "no-referrer",
+        // no-referrer makes navigation form POSTs send Origin:null, failing CSRF.
+        // Preserve the HTTPS origin only, never a path/query or a downgrade referrer.
+        "Referrer-Policy": "strict-origin",
         "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src https://avatars.githubusercontent.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`,
+        "Content-Security-Policy": `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src https://avatars.githubusercontent.com; form-action 'self' ${callback.data}; frame-ancestors 'none'; base-uri 'none'`,
       },
     },
   );

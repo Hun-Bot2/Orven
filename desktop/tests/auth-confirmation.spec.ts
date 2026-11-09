@@ -9,6 +9,7 @@ async function mount(page: import("@playwright/test").Page) {
         "fixture-engineer",
         "https://avatars.githubusercontent.com/u/42?v=4",
         "synthetic-flow",
+        "http://127.0.0.1:45123/orven-auth/callback",
       );
       await route.fulfill({
         status: 200,
@@ -82,9 +83,13 @@ test("Continue posts only the flow to the existing same-origin endpoint", async 
   page,
 }) => {
   await mount(page);
+  let submittedOrigin: string | null = null;
+  let submittedReferrer: string | null = null;
   await page.route(
     "https://orven.example/auth/desktop/approve",
     async (route) => {
+      submittedOrigin = await route.request().headerValue("origin");
+      submittedReferrer = await route.request().headerValue("referer");
       expect(route.request().method()).toBe("POST");
       expect(route.request().postData()).toBe("flow_id=synthetic-flow");
       await route.fulfill({
@@ -97,4 +102,6 @@ test("Continue posts only the flow to the existing same-origin endpoint", async 
     .getByRole("button", { name: "Continue as fixture-engineer" })
     .click();
   await expect(page.getByText("Synthetic approval received")).toBeVisible();
+  expect(submittedOrigin).toBe("https://orven.example");
+  expect(submittedReferrer).toBe("https://orven.example/");
 });

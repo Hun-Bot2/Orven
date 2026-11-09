@@ -12,7 +12,8 @@
     "format": "prettier --write src tests *.ts *.json index.html",
     "format:check": "prettier --check src tests *.ts *.json index.html",
     "test:production": "npm run build && node scripts/check-production-ui.mjs",
-    "package:macos": "CI=true tauri build --bundles app,dmg"
+    "package:macos": "CI=true tauri build --bundles app,dmg",
+    "test:auth:integration": "node scripts/check-auth-handoff.mjs"
   },
   "dependencies": {
     "@fontsource/geist": "5.3.0",

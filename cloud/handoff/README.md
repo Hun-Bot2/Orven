@@ -56,7 +56,9 @@ not revoke upstream grants.
 Cookies are `__Host-`, Secure, HttpOnly, SameSite=Lax, Path=/, without Domain. Browser
 sessions expire after one hour and rotate on login; the old session presented by
 that browser is revoked. Multiple separate browsers can have separate sessions.
-Responses disable caching and referrer disclosure. Request URL and any supplied
+Responses disable caching and suppress referrer paths/queries. The browser
+confirmation uses `strict-origin` to preserve the Origin on its same-origin form
+POST; other authentication responses use `no-referrer`. Request URL and any supplied
 Origin must match the configured origin; untrusted forwarded headers are unused.
 No caller-selected redirect destination is accepted.
 
@@ -145,3 +147,12 @@ without forwarding the bearer credential. No real GitHub login is established by
 these synthetic tests.
 
 Reference: [Workers Request redirect modes](https://developers.cloudflare.com/workers/runtime-apis/request/).
+
+
+Desktop approval now validates its form with `zod/v4` and reports safe fixed
+failure codes for flow/session/form/reuse failures. Confirmation CSP is limited to
+self plus its exact schema-validated loopback callback, allowing the existing 303
+return without opening arbitrary destinations. See the
+[connected browser/Worker verification](../../docs/desktop-auth.md#full-browserworker-boundary-verification-2026-11-10)
+for the test that traverses real browser cookies and redirects with local Workers/D1.
+The existing expiration and authorization rules were not relaxed.

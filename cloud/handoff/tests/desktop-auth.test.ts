@@ -40,7 +40,10 @@ beforeEach(async () => {
     ].map((table) => env.DB.prepare(`DELETE FROM ${table}`)),
   );
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 async function flow(accountId = 42) {
   const verifier = generateRandomCodeVerifier();
@@ -135,6 +138,7 @@ it("completes browser-confirmed desktop login and returns only an Orven credenti
     headers: { Cookie: f.Cookie },
   });
   expect(confirmation.status).toBe(200);
+  expect(confirmation.headers.get("Referrer-Policy")).toBe("strict-origin");
   const html = await confirmation.text();
   expect(html).toContain("Continue as fixture-42");
   expect(html).not.toContain("github-private-token");
@@ -216,7 +220,7 @@ it("requires browser binding, same-origin approval and the same verified account
     ).status,
   ).toBe(400);
   const body = new URLSearchParams({ flow_id: first.flowId });
-  for (const originHeader of [undefined, "https://attacker.example"]) {
+  for (const originHeader of [undefined, "null", "https://attacker.example"]) {
     const headers: Record<string, string> = {
       Cookie: first.Cookie,
       "Content-Type": "application/x-www-form-urlencoded",
@@ -349,9 +353,13 @@ it("rejects arbitrary redirects, duplicate parameters, malformed or oversized re
   }
 });
 
-
 it("escapes confirmation content and authorizes only its nonce-bound presentation script", async () => {
-  const page = confirmationPage('<script>private-marker</script>', 'https://avatars.githubusercontent.com/u/42?x=" onerror="private-marker', '" autofocus onfocus="private-marker');
+  const page = confirmationPage(
+    "<script>private-marker</script>",
+    'https://avatars.githubusercontent.com/u/42?x=" onerror="private-marker',
+    '" autofocus onfocus="private-marker',
+    redirect,
+  );
   const body = await page.text();
   expect(body).not.toContain("<script>private-marker</script>");
   expect(body).toContain("&lt;script&gt;private-marker&lt;/script&gt;");
@@ -359,9 +367,141 @@ it("escapes confirmation content and authorizes only its nonce-bound presentatio
   expect(body).not.toContain(' onfocus="private-marker');
   const policy = page.headers.get("Content-Security-Policy")!;
   expect(policy).not.toContain("unsafe-inline");
-  expect(policy).toContain("form-action 'self'");
+  expect(policy).toContain(`form-action 'self' ${redirect};`);
+  expect(policy).not.toContain("http://127.0.0.1:*");
   expect(policy).toContain("frame-ancestors 'none'");
   const nonce = /script-src 'nonce-([^']+)'/.exec(policy)![1];
   expect(body).toContain(`<script nonce="${nonce}">`);
-  expect(confirmationPage("fixture", "https://avatars.githubusercontent.com/u/42", "flow").headers.get("Content-Security-Policy")).not.toBe(policy);
+  expect(
+    confirmationPage(
+      "fixture",
+      "https://avatars.githubusercontent.com/u/42",
+      "flow",
+      redirect,
+    ).headers.get("Content-Security-Policy"),
+  ).not.toBe(policy);
+});
+
+it.each(["duplicate", "unknown", "malformed", "missing"])(
+  "Zod rejects %s approval form fields before issuing a code",
+  async (mode) => {
+    const f = await flow();
+    const form = new URLSearchParams();
+    if (mode !== "missing")
+      form.append("flow_id", mode === "malformed" ? "invalid" : f.flowId);
+    if (mode === "duplicate") form.append("flow_id", f.flowId);
+    if (mode === "unknown") form.append("user_id", "forged-user");
+    const result = await call("/auth/desktop/approve", {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        Cookie: f.Cookie,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: form,
+    });
+    expect(result.status).toBe(400);
+    expect(await result.json()).toMatchObject({
+      code: "invalid_form",
+      stage: "approve",
+    });
+    expect(
+      await env.DB.prepare(
+        "SELECT code_hash FROM desktop_login_flows WHERE flow_id = ?",
+      )
+        .bind(f.flowId)
+        .first(),
+    ).toEqual({ code_hash: null });
+  },
+);
+
+it("distinguishes approval failures without logging identity or authorization material", async () => {
+  const f = await flow();
+  const log = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const request = async (Cookie: string, flowId = f.flowId) =>
+    call("/auth/desktop/approve", {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        Cookie,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ flow_id: flowId }),
+    });
+  const noCookie = await request(f.browserCookie);
+  expect(await noCookie.json()).toMatchObject({
+    code: "flow_cookie_missing",
+    stage: "approve",
+  });
+  expect(log.mock.calls[0]).toEqual([
+    {
+      event: "orven_desktop_auth_failure",
+      diagnostic_id: noCookie.headers.get("X-Orven-Auth-Error-ID"),
+      stage: "approve",
+      code: "flow_cookie_missing",
+    },
+  ]);
+  expect(await (await request(f.flowCookie)).json()).toMatchObject({
+    code: "browser_session_unavailable",
+  });
+  expect(await (await request(f.Cookie, "x".repeat(43))).json()).toMatchObject({
+    code: "flow_binding_mismatch",
+  });
+  await env.DB.prepare(
+    "UPDATE desktop_login_flows SET expires_at = 0 WHERE flow_id = ?",
+  )
+    .bind(f.flowId)
+    .run();
+  expect(await (await request(f.Cookie)).json()).toMatchObject({
+    code: "flow_expired_or_unavailable",
+  });
+  const text = JSON.stringify(log.mock.calls);
+  for (const value of [
+    f.flowId,
+    f.state,
+    f.verifier,
+    f.browserCookie,
+    "github-private-token",
+    "fixture-42",
+  ])
+    expect(text).not.toContain(value);
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM desktop_credentials",
+    ).first(),
+  ).toEqual({ n: 0 });
+});
+
+it("allows only one concurrent approval and diagnoses reuse", async () => {
+  const f = await flow();
+  const results = await Promise.all([approve(f), approve(f)]);
+  expect(results.map((r) => r.status).sort()).toEqual([303, 400]);
+  const failure = await results
+    .find((r) => r.status === 400)!
+    .json<{ code: string }>();
+  expect(["approval_already_used", "approval_consumed_or_expired"]).toContain(
+    failure.code,
+  );
+  expect(await (await approve(f)).json()).toMatchObject({
+    code: "approval_already_used",
+  });
+});
+
+it.each([
+  "https://127.0.0.1:45123/orven-auth/callback",
+  "http://localhost:45123/orven-auth/callback",
+  "http://127.0.0.1:80/orven-auth/callback",
+  "http://127.0.0.1:65536/orven-auth/callback",
+  "http://127.0.0.1:45123/orven-auth/callback?target=elsewhere",
+  "http://attacker.example:45123/orven-auth/callback",
+  "javascript:alert(1)",
+])("rejects unsafe confirmation callback %s", (candidate) => {
+  expect(() =>
+    confirmationPage(
+      "fixture",
+      "https://avatars.githubusercontent.com/u/42?v=4",
+      "flow",
+      candidate,
+    ),
+  ).toThrow("Invalid desktop callback configuration");
 });

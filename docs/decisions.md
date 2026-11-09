@@ -77,7 +77,11 @@ Shared Rust Core validates origin, callback and profile policy; Tauri owns only 
 HTTPS, browser, loopback and macOS Keychain adapters. Credential values stay out of IPC
 and frontend storage. Session restoration revalidates against the backend; logout
 revokes before deleting the Keychain item. Network failure retains it for retry.
-Unsupported OS storage fails closed. This adds no desktop-writing capability or new
+Unsupported OS storage fails closed. The browser confirmation's form CSP permits
+self and only its exact validated per-flow IPv4 loopback callback, so approval can
+return to the existing native listener without allowing arbitrary local endpoints.
+Strict form schemas supplement, rather than replace, cookie/session binding,
+expiry and atomic one-use consumption. This adds no desktop-writing capability or new
 Cloudflare resource. See [A.1 protocol and manual gate](desktop-auth.md).
 
 ## Open questions and decision gates

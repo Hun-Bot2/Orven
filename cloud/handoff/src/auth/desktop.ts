@@ -23,6 +23,9 @@ const startSchema = z.strictObject({
   state: z.string().regex(/^[A-Za-z0-9_-]{43,128}$/),
   code_challenge: z.string().regex(tokenPattern),
 });
+const approvalSchema = z.strictObject({
+  flow_id: z.string().regex(tokenPattern),
+});
 const exchangeSchema = z.strictObject({
   code: z.string().regex(tokenPattern),
   code_verifier: z.string().regex(/^[A-Za-z0-9_-]{43,128}$/),
@@ -147,6 +150,22 @@ function bearer(request: Request): string | null {
   );
   return match?.[1] ?? null;
 }
+type DesktopFailureCode =
+  | "invalid_request"
+  | "invalid_form"
+  | "origin_rejected"
+  | "request_type_rejected"
+  | "flow_cookie_missing"
+  | "flow_expired_or_unavailable"
+  | "browser_session_unavailable"
+  | "account_mismatch"
+  | "flow_binding_mismatch"
+  | "approval_already_used"
+  | "approval_consumed_or_expired"
+  | "profile_unavailable"
+  | "exchange_invalid_or_expired"
+  | "storage_or_internal_failure";
+
 export async function routeDesktopAuth(
   request: Request,
   env: AuthEnv,
@@ -155,16 +174,49 @@ export async function routeDesktopAuth(
   if (!config) return response({ error: "Authentication unavailable" }, 503);
   const url = new URL(request.url);
   const origin = request.headers.get("Origin");
+  const stage =
+    (
+      {
+        "/auth/desktop/start": "start",
+        "/auth/desktop/confirm": "confirm",
+        "/auth/desktop/approve": "approve",
+        "/auth/desktop/exchange": "exchange",
+      } as Record<string, string>
+    )[url.pathname] ?? "desktop_request";
+  const invalid = (
+    code: DesktopFailureCode = "invalid_request",
+    status = 400,
+  ) => {
+    const diagnosticId = crypto.randomUUID();
+    // Only fixed labels and an unrelated random ID. Never log the request, cookies,
+    // flow ID/state, profile, authorization code, credential or raw exception.
+    console.warn({
+      event: "orven_desktop_auth_failure",
+      diagnostic_id: diagnosticId,
+      stage,
+      code,
+    });
+    const result = response(
+      {
+        error:
+          status === 403
+            ? "Forbidden"
+            : status === 503
+              ? "Authentication unavailable"
+              : "Invalid or expired desktop authorization; restart sign-in",
+        code,
+        stage,
+      },
+      status,
+    );
+    result.headers.set("X-Orven-Auth-Error-ID", diagnosticId);
+    return result;
+  };
   if (
     url.origin !== config.origin ||
     (origin !== null && origin !== config.origin)
   )
-    return response({ error: "Forbidden" }, 403);
-  const invalid = () =>
-    response(
-      { error: "Invalid or expired desktop authorization; restart sign-in" },
-      400,
-    );
+    return invalid("origin_rejected", 403);
   try {
     if (url.pathname === "/auth/desktop/start" && request.method === "GET") {
       if (
@@ -209,40 +261,46 @@ export async function routeDesktopAuth(
         boundFlow(request, env.DB),
         browserUser(request, env.DB),
       ]);
-      if (
-        !flow ||
-        !userId ||
-        flow.user_id !== userId ||
-        flow.code_hash !== null
-      )
-        return invalid();
+      if (!cookie(request, FLOW_COOKIE)) return invalid("flow_cookie_missing");
+      if (!flow) return invalid("flow_expired_or_unavailable");
+      if (!userId) return invalid("browser_session_unavailable");
+      if (flow.user_id !== userId) return invalid("account_mismatch");
+      if (flow.code_hash !== null) return invalid("approval_already_used");
       const user = await profile(env.DB, userId);
       if (!user || !/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(user.username))
-        return invalid();
-      return confirmationPage(user.username, user.avatar_url, flow.flow_id);
+        return invalid("profile_unavailable");
+      return confirmationPage(
+        user.username,
+        user.avatar_url,
+        flow.flow_id,
+        flow.redirect_uri,
+      );
     }
     if (url.pathname === "/auth/desktop/approve" && request.method === "POST") {
+      if (origin !== config.origin) return invalid("origin_rejected", 403);
       if (
-        origin !== config.origin ||
         request.headers.get("Content-Type")?.split(";")[0] !==
-          "application/x-www-form-urlencoded"
+        "application/x-www-form-urlencoded"
       )
-        return response({ error: "Forbidden" }, 403);
+        return invalid("request_type_rejected", 403);
       const raw = await boundedBody(request);
       if (raw === null) return invalid();
       const form = new URLSearchParams(raw);
+      // Object.fromEntries alone silently discards duplicate fields.
+      if (Array.from(form).length !== 1) return invalid("invalid_form");
+      const submitted = approvalSchema.safeParse(Object.fromEntries(form));
+      if (!submitted.success) return invalid("invalid_form");
       const [flow, userId] = await Promise.all([
         boundFlow(request, env.DB),
         browserUser(request, env.DB),
       ]);
-      if (
-        !flow ||
-        !userId ||
-        flow.user_id !== userId ||
-        form.getAll("flow_id").length !== 1 ||
-        form.get("flow_id") !== flow.flow_id
-      )
-        return invalid();
+      if (!cookie(request, FLOW_COOKIE)) return invalid("flow_cookie_missing");
+      if (!flow) return invalid("flow_expired_or_unavailable");
+      if (!userId) return invalid("browser_session_unavailable");
+      if (flow.user_id !== userId) return invalid("account_mismatch");
+      if (submitted.data.flow_id !== flow.flow_id)
+        return invalid("flow_binding_mismatch");
+      if (flow.code_hash !== null) return invalid("approval_already_used");
       const code = generateRandomState();
       const approved = await env.DB.prepare(
         `UPDATE desktop_login_flows SET code_hash = ?, expires_at = MIN(expires_at, ?)
@@ -256,7 +314,7 @@ export async function routeDesktopAuth(
           Date.now(),
         )
         .first();
-      if (!approved) return invalid();
+      if (!approved) return invalid("approval_consumed_or_expired");
       const location = new URL(flow.redirect_uri);
       location.search = new URLSearchParams({
         code,
@@ -297,9 +355,9 @@ export async function routeDesktopAuth(
           Date.now(),
         )
         .first<{ user_id: string }>();
-      if (!flow) return invalid();
+      if (!flow) return invalid("exchange_invalid_or_expired");
       const user = await profile(env.DB, flow.user_id);
-      if (!user) return invalid();
+      if (!user) return invalid("profile_unavailable");
       const credential = generateRandomState();
       const expiresAt = Date.now() + CREDENTIAL_SECONDS * 1000;
       await env.DB.prepare("INSERT INTO desktop_credentials VALUES (?, ?, ?)")
@@ -338,6 +396,6 @@ export async function routeDesktopAuth(
     }
     return response({ error: "Not found" }, 404);
   } catch {
-    return response({ error: "Authentication unavailable" }, 503);
+    return invalid("storage_or_internal_failure", 503);
   }
 }
