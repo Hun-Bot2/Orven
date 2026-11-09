@@ -1,0 +1,130 @@
+.account-panel {
+  padding: var(--space-lg);
+  display: grid;
+  gap: var(--space-md);
+}
+.account-panel p {
+  margin: 0;
+  max-width: 65ch;
+  line-height: 1.55;
+  white-space: normal;
+}
+.account-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+}
+.account-summary-copy {
+  min-width: 0;
+}
+.account-summary-copy > strong {
+  display: block;
+  font: 600 var(--text-section)/1.45 var(--sans);
+  overflow-wrap: anywhere;
+}
+.account-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 4px;
+}
+.account-avatar {
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  outline: 1px solid rgb(0 0 0 / 0.1);
+  outline-offset: -1px;
+}
+.account-avatar-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--color-bg-muted);
+  color: var(--secondary);
+  font: 500 0.75rem/1 var(--sans);
+}
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+.account-panel .account-error {
+  color: var(--color-danger-text);
+  font-size: var(--text-body);
+}
+.account-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.account-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 36px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--secondary);
+  font: 500 var(--text-caption)/1.4 var(--sans);
+}
+.account-trigger-authenticated {
+  padding: 3px;
+  border-radius: 50%;
+}
+.account-trigger-unavailable,
+.account-trigger-expired {
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+}
+.account-trigger-waiting {
+  color: var(--color-info-text);
+  background: var(--color-info-bg);
+}
+.account-trigger-signed_out {
+  padding: 6px;
+  color: var(--ink);
+}
+.account-trigger:hover {
+  background: var(--color-bg-hover);
+}
+.account-popover {
+  position: absolute;
+  inset-block-start: calc(100% + 10px);
+  inset-inline-end: 0;
+  width: 344px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 100px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-lg);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-popover);
+  box-shadow:
+    0 6px 22px rgb(0 0 0 / 0.1),
+    0 1px 4px rgb(0 0 0 / 0.04);
+  white-space: normal;
+  user-select: text;
+}
+.account-popover-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  font: 600 var(--text-caption)/1.4 var(--sans);
+  color: var(--secondary);
+  margin-bottom: var(--space-base);
+}
+.account-popover-heading .text-button {
+  min-height: 28px;
+}
+.account-panel-compact {
+  padding: 0;
+}
+.account-panel-compact .account-status .caption {
+  display: none;
+}

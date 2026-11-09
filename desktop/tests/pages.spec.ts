@@ -104,6 +104,10 @@ async function mount(page: Page, populated: boolean) {
   await page.goto("/");
 }
 async function navigate(page: Page, name: string) {
+  if (name === "Connections & Security") {
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    return;
+  }
   await page
     .getByRole("navigation", { name: "Workspace navigation" })
     .getByRole("button", { name })

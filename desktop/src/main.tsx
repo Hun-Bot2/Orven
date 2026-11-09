@@ -8,4 +8,9 @@ import "@fontsource/jetbrains-mono/500.css";
 import "./tokens.css";
 import "./styles.css";
 import App from "./App";
-ReactDOM.createRoot(document.getElementById("root")!).render(<App />);
+import { AccountProvider } from "./AccountContext";
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <AccountProvider>
+    <App />
+  </AccountProvider>,
+);

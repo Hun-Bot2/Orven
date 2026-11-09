@@ -1,0 +1,23 @@
+{
+  "evidence": "Temporary native WebView geometry diagnostic; removed from final source. This is not a painted screenshot.",
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "app": {
+    "x": 0,
+    "y": 0,
+    "width": 1440,
+    "height": 1000
+  },
+  "brand": {
+    "x": 96,
+    "y": 19,
+    "width": 45.6875,
+    "height": 17
+  },
+  "display": "grid",
+  "bodyOpacity": 1,
+  "nativeAfterPaint": "unverified",
+  "automationError": "macOS System Events denied Apple events (-1743)"
+}

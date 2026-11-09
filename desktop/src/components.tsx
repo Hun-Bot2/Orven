@@ -181,11 +181,13 @@ export function Dialog({
   children,
   onClose,
   wide = false,
+  dismissOnBackdrop = true,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  dismissOnBackdrop?: boolean;
 }) {
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
@@ -195,7 +197,11 @@ export function Dialog({
     node?.showModal();
     return () => {
       node?.close();
-      old?.focus();
+      if (old?.isConnected) old.focus();
+      else
+        document
+          .querySelector<HTMLButtonElement>(".navigation-toggle")
+          ?.focus();
     };
   }, []);
   return (
@@ -205,10 +211,11 @@ export function Dialog({
       ref={ref}
       onCancel={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         onClose();
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (dismissOnBackdrop && e.target === e.currentTarget) onClose();
       }}
     >
       <header>

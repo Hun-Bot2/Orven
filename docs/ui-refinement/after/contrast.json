@@ -1,0 +1,162 @@
+[
+  {
+    "fg": "--muted",
+    "bg": "--rail",
+    "foreground": [
+      98,
+      104,
+      114
+    ],
+    "background": [
+      242,
+      244,
+      246
+    ],
+    "threshold": 4.5,
+    "contrast": 5.089321988374088
+  },
+  {
+    "fg": "--muted",
+    "bg": "--subtle",
+    "foreground": [
+      98,
+      104,
+      114
+    ],
+    "background": [
+      232,
+      235,
+      239
+    ],
+    "threshold": 4.5,
+    "contrast": 4.6923633069358885
+  },
+  {
+    "fg": "--secondary",
+    "bg": "--paper",
+    "foreground": [
+      69,
+      75,
+      84
+    ],
+    "background": [
+      255,
+      255,
+      255
+    ],
+    "threshold": 4.5,
+    "contrast": 8.79584371715546
+  },
+  {
+    "fg": "--color-selection-text",
+    "bg": "--color-selection-bg",
+    "foreground": [
+      28,
+      67,
+      168
+    ],
+    "background": [
+      237,
+      242,
+      255
+    ],
+    "threshold": 4.5,
+    "contrast": 7.753652880495679
+  },
+  {
+    "fg": "--color-success-text",
+    "bg": "--color-success-bg",
+    "foreground": [
+      22,
+      113,
+      72
+    ],
+    "background": [
+      237,
+      248,
+      240
+    ],
+    "threshold": 4.5,
+    "contrast": 5.526518245201734
+  },
+  {
+    "fg": "--color-warning-text",
+    "bg": "--color-warning-bg",
+    "foreground": [
+      139,
+      81,
+      9
+    ],
+    "background": [
+      255,
+      248,
+      235
+    ],
+    "threshold": 4.5,
+    "contrast": 6.062931013506101
+  },
+  {
+    "fg": "--color-danger-text",
+    "bg": "--color-danger-bg",
+    "foreground": [
+      179,
+      38,
+      30
+    ],
+    "background": [
+      255,
+      241,
+      240
+    ],
+    "threshold": 4.5,
+    "contrast": 5.942718336137382
+  },
+  {
+    "fg": "--paper",
+    "bg": "--color-action-solid",
+    "foreground": [
+      255,
+      255,
+      255
+    ],
+    "background": [
+      34,
+      82,
+      202
+    ],
+    "threshold": 4.5,
+    "contrast": 6.714011798432818
+  },
+  {
+    "fg": "--color-input-border",
+    "bg": "--paper",
+    "foreground": [
+      133,
+      141,
+      153
+    ],
+    "background": [
+      255,
+      255,
+      255
+    ],
+    "threshold": 3,
+    "contrast": 3.350756632742793
+  },
+  {
+    "fg": "--color-focus",
+    "bg": "--paper",
+    "foreground": [
+      34,
+      82,
+      202
+    ],
+    "background": [
+      255,
+      255,
+      255
+    ],
+    "threshold": 3,
+    "contrast": 6.714011798432818
+  }
+]

@@ -1,35 +1,148 @@
+/* White-first, light appearance. Hex fallbacks match the OKLCH primitives below. */
 :root {
   color-scheme: light;
-  --canvas: #f9f9f8;
-  --paper: #fff;
-  --rail: #f3f4f3;
-  --subtle: #eeeeed;
-  --ink: #1a1c1c;
-  --secondary: #46464b;
-  --muted: #727279;
-  --line: #dfdfe1;
-  --line-strong: #c7c6cb;
-  --blue: #2252ca;
-  --green: #16794c;
-  --green-bg: #ebf7ee;
-  --red: #ba1a1a;
-  --red-bg: #fdf2f2;
-  --amber: #995605;
-  --amber-bg: #fef8ec;
-  --blue-bg: #eef2fd;
+  --neutral-0: #ffffff;
+  --neutral-25: #f8f9fa;
+  --neutral-50: #f2f4f6;
+  --neutral-100: #e8ebef;
+  --neutral-200: #dfe3e8;
+  --neutral-300: #c4cad2;
+  --neutral-500: #858d99;
+  --neutral-600: #626872;
+  --neutral-700: #454b54;
+  --neutral-950: #1a1c1c;
+  --accent-50: #edf2ff;
+  --accent-600: #2252ca;
+  --accent-700: #1c43a8;
+  --success-50: #edf8f0;
+  --success-700: #167148;
+  --warning-50: #fff8eb;
+  --warning-700: #8b5109;
+  --danger-50: #fff1f0;
+  --danger-700: #b3261e;
+  --color-bg-page: var(--neutral-0);
+  --color-bg-chrome: var(--neutral-25);
+  --color-bg-muted: var(--neutral-50);
+  --color-bg-hover: var(--neutral-100);
+  --color-text-primary: var(--neutral-950);
+  --color-text-secondary: var(--neutral-700);
+  --color-text-muted: var(--neutral-600);
+  --color-border-subtle: var(--neutral-200);
+  --color-border-strong: var(--neutral-300);
+  --color-input-border: var(--neutral-500);
+  --color-focus: var(--accent-600);
+  --color-action-solid: var(--accent-600);
+  --color-action-hover: var(--accent-700);
+  --color-selection-bg: var(--accent-50);
+  --color-selection-text: var(--accent-700);
+  --color-success-text: var(--success-700);
+  --color-success-bg: var(--success-50);
+  --color-warning-text: var(--warning-700);
+  --color-warning-bg: var(--warning-50);
+  --color-danger-text: var(--danger-700);
+  --color-danger-bg: var(--danger-50);
+  --color-info-text: var(--accent-600);
+  --color-info-bg: var(--accent-50);
+  /* Compatibility aliases preserve the existing component contracts. */
+  --canvas: var(--color-bg-chrome);
+  --paper: var(--color-bg-page);
+  --rail: var(--color-bg-muted);
+  --subtle: var(--color-bg-hover);
+  --ink: var(--color-text-primary);
+  --secondary: var(--color-text-secondary);
+  --muted: var(--color-text-muted);
+  --line: var(--color-border-subtle);
+  --line-strong: var(--color-border-strong);
+  --blue: var(--color-info-text);
+  --green: var(--color-success-text);
+  --green-bg: var(--color-success-bg);
+  --red: var(--color-danger-text);
+  --red-bg: var(--color-danger-bg);
+  --amber: var(--color-warning-text);
+  --amber-bg: var(--color-warning-bg);
+  --blue-bg: var(--color-info-bg);
   --sans:
     "Geist", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     sans-serif;
   --serif: "Newsreader", "Iowan Old Style", "AppleMyungjo", serif;
   --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  --text-caption: 0.75rem;
+  --text-body: 0.8125rem;
+  --text-section: 0.875rem;
+  --text-title: 1.875rem;
   --rail-width: 240px;
-  --toolbar-height: 54px;
+  --toolbar-height: 56px;
+  --titlebar-controls-width: 96px;
   --inspector-width: 340px;
-  --status-height: 26px;
+  --status-height: 28px;
   --space-xs: 4px;
-  --space-sm: 6px;
+  --space-sm: 8px;
   --space-md: 12px;
+  --space-base: 16px;
   --space-lg: 20px;
+  --space-section: 24px;
   --space-xl: 32px;
-  --radius: 3px;
+  --space-2xl: 48px;
+  --radius: 5px;
+  --radius-panel: 8px;
+  --radius-popover: 12px;
+}
+@supports (color: oklch(50% 0 0)) {
+  :root {
+    --neutral-0: oklch(1.0000000000000002 0 none);
+    --neutral-25: oklch(
+      0.9816389499051614 0.0017073720058911246 247.83945362134128
+    );
+    --neutral-50: oklch(
+      0.9661973590261926 0.0034284498707638777 247.858627565345
+    );
+    --neutral-100: oklch(
+      0.9389230893887993 0.00628572946277234 255.47623540623857
+    );
+    --neutral-200: oklch(
+      0.9142093849120372 0.008056309469045406 253.85659125917897
+    );
+    --neutral-300: oklch(
+      0.8367343938695668 0.012955653926189088 255.5160713006847
+    );
+    --neutral-500: oklch(
+      0.640797884001141 0.02023881710495228 258.3665255595557
+    );
+    --neutral-600: oklch(
+      0.5155976293738318 0.017441614640286044 260.7091395393584
+    );
+    --neutral-700: oklch(
+      0.41075608434461625 0.016983702646773857 258.3715026259447
+    );
+    --neutral-950: oklch(
+      0.22430544479776443 0.003043823768559372 196.93943646688876
+    );
+    --accent-50: oklch(
+      0.9611593132582018 0.0182379541723707 269.08955324852485
+    );
+    --accent-600: oklch(
+      0.48454361581857636 0.1936890689820913 263.9276972788439
+    );
+    --accent-700: oklch(
+      0.4232345245418876 0.16838729108575143 264.2353493227751
+    );
+    --success-50: oklch(
+      0.9686995645892997 0.01567896059424116 154.47485587450524
+    );
+    --success-700: oklch(
+      0.48688713192427757 0.10536070187346092 158.10230536864034
+    );
+    --warning-50: oklch(
+      0.9810401359415241 0.01869399902457339 83.0642704308317
+    );
+    --warning-700: oklch(
+      0.4919367266109183 0.10833393455130892 63.21892054055613
+    );
+    --danger-50: oklch(
+      0.968859979074746 0.015216262834481709 22.394834706034185
+    );
+    --danger-700: oklch(
+      0.5012820851605182 0.17831790198194247 28.7047212514707
+    );
+  }
 }

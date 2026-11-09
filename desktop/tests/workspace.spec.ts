@@ -143,7 +143,7 @@ test("Option A report, history, security and evidence render without fictitious 
     await page
       .locator(".toolbar")
       .evaluate((el) => el.getBoundingClientRect().height),
-  ).toBe(54);
+  ).toBe(56);
   expect(
     await page.locator("h1").evaluate((el) => getComputedStyle(el).fontFamily),
   ).toContain("Newsreader");
@@ -166,10 +166,7 @@ test("Option A report, history, security and evidence render without fictitious 
     page.getByRole("table", { name: "Saved audit runs" }),
   ).toBeVisible();
   await page.screenshot({ path: "test-results/phase2a-history.png" });
-  await page
-    .getByRole("navigation", { name: "Workspace navigation" })
-    .getByRole("button", { name: "Connections & Security" })
-    .click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(
     page.getByText("Gateway unavailable. No live session state is available."),
   ).toBeVisible();
@@ -180,6 +177,7 @@ test("Option A report, history, security and evidence render without fictitious 
   ).toBeVisible();
   await expect(page.getByText("OS ISOLATION")).toBeVisible();
   await page.screenshot({ path: "test-results/phase2a-security.png" });
+  await page.keyboard.press("Escape");
   await page
     .getByRole("navigation", { name: "Workspace navigation" })
     .getByRole("button", { name: "Audit Workspace" })

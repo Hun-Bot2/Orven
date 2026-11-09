@@ -67,3 +67,19 @@ This command expects MCP protocol frames on stdin and reserves stdout for protoc
 See [tool/consent contracts](docs/gateway-contract.md), [host setup and official requirements](docs/phase-2b-compatibility.md), and [manual macOS checklist](docs/macos-smoke-checklist.md). No full chat history is retrieved. No source excerpts or paths are transmitted by the report tool. A host may share returned metadata with its provider.
 
 Next milestone: actual permitted Claude Desktop/ChatGPT receipts and the native picker/audit/evidence manual gate. Packed-object support, desktop hard cancellation, HTTP authorization and additional remote-host validation remains a separate gate. Remote execution and provider adapters stay disabled.
+
+## GitHub desktop account
+
+**Phase A.1 is implemented; on 2026-11-10 the operator reported successful GitHub
+progression to the account-confirmation page.** In **Settings**, use **Sign in with GitHub**.
+The system browser completes GitHub login and asks you to confirm the account before
+returning to Orven. A separate revocable credential lives in macOS Keychain; account
+sign-in grants no repository or MCP access. See [configuration, protocol, test evidence
+and manual verification](docs/desktop-auth.md). The operator applied the remote
+migrations and deployed the Worker; restart restoration and revocation remain
+separate live checks. MCP OAuth and cloud MCP tools are not implemented by this phase.
+
+
+The [desktop UI refinement audit](docs/ui-refinement/README.md) records the current
+white-first visual system, shared toolbar/settings account state, before/after
+screenshots, accessibility/contrast receipts and the remaining native visual gate.

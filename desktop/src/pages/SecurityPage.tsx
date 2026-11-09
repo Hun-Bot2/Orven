@@ -1,10 +1,6 @@
+import { AccountPanel } from "../AccountPanel";
 import { useEffect, useState } from "react";
-import {
-  LockKeyhole,
-  RefreshCw,
-  ShieldCheck,
-  ShieldQuestion,
-} from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import {
   Badge,
   Button,
@@ -46,22 +42,19 @@ export function SecurityPage({
     <div className="security-page gateway-page">
       <PageHeading
         eyebrow="LOCAL POLICY · SECURITY BOUNDARIES"
-        title="Connections & Security Boundaries"
+        title="Connections & Security"
         actions={
           <Button icon={RefreshCw} onClick={onRefreshGateway}>
             Refresh gateway
           </Button>
         }
       >
-        Review the live session, workspace permissions, and boundaries requiring
-        verification.
+        Manage your account and local workspace access.
       </PageHeading>
+      <AccountPanel />
       <div className="security-metrics">
-        <Metric label="SNAPSHOT INPUT" value="Committed Git">
-          Loose objects only
-        </Metric>
         <Metric label="REPOSITORY ACCESS" value="Read-only audit">
-          No target commands are invoked
+          Committed Git · loose objects only
         </Metric>
         <Metric
           label="GATEWAY"
@@ -77,14 +70,24 @@ export function SecurityPage({
       </div>
       <div className="security-content">
         <Panel
-          title={
-            <>
-              <LockKeyhole size={15} aria-hidden="true" /> Local gateway session
-            </>
+          title="Local gateway session"
+          actions={
+            <Badge tone={gateway?.running ? "info" : "neutral"}>
+              {gateway
+                ? gateway.running
+                  ? "Running locally"
+                  : "Stopped"
+                : "Unavailable"}
+            </Badge>
           }
         >
           <div className="gateway-body">
-            {gatewayError && <p role="alert">{gatewayError}</p>}
+            {gatewayError && (
+              <details className="security-details">
+                <summary>Connection diagnostics</summary>
+                <p>{gatewayError}</p>
+              </details>
+            )}
             {gateway ? (
               <>
                 {gateway.sessions && gateway.sessions.length > 0 && (
@@ -116,10 +119,13 @@ export function SecurityPage({
                     </select>
                   </label>
                 )}
-                <p>
-                  <strong>Transport:</strong> {gateway.transport} ·{" "}
-                  <strong>Session:</strong> <code>{gateway.session_id}</code>
-                </p>
+                <details className="security-details">
+                  <summary>Transport and session identity</summary>
+                  <p>
+                    <strong>Transport:</strong> {gateway.transport} ·{" "}
+                    <strong>Session:</strong> <code>{gateway.session_id}</code>
+                  </p>
+                </details>
                 <p>
                   <strong>Client-reported name (untrusted):</strong>{" "}
                   {gateway.client || "Not supplied"}. The session, not this
@@ -141,7 +147,11 @@ export function SecurityPage({
             project && gateway?.running ? (
               <div className="gateway-actions">
                 <Button onClick={openAccess}>Edit access</Button>
-                <Button disabled={!access} onClick={() => onRevoke(project.id)}>
+                <Button
+                  data-tone="danger"
+                  disabled={!access}
+                  onClick={() => onRevoke(project.id)}
+                >
                   Revoke access
                 </Button>
               </div>
@@ -155,10 +165,18 @@ export function SecurityPage({
               <p>
                 Permissions unavailable while the gateway cannot be reached.
               </p>
+            ) : !gateway.running ? (
+              <p>
+                The selected gateway is stopped. Workspace permissions are
+                unavailable; select a live connection to review access.
+              </p>
             ) : (
               <>
                 <p>
-                  <strong>{project.name}</strong> ·{" "}
+                  <strong className="security-workspace-name">
+                    {project.name}
+                  </strong>{" "}
+                  ·{" "}
                   {access
                     ? `${Object.values(access.scope).filter(Boolean).length} of 3 permissions allowed`
                     : "No active grant"}
@@ -183,14 +201,13 @@ export function SecurityPage({
             )}
           </div>
         </Panel>
-        <Panel
-          title={
-            <>
-              <ShieldCheck size={15} aria-hidden="true" /> Implemented audit
-              policy
-            </>
-          }
-        >
+        <details className="security-details security-policy">
+          <summary>
+            Implemented audit policy{" "}
+            <span className="caption muted">
+              Snapshot, storage and inspection limits
+            </span>
+          </summary>
           <div className="security-policy-grid">
             <section>
               <h3>Snapshot and storage</h3>
@@ -222,14 +239,10 @@ export function SecurityPage({
               </ul>
             </section>
           </div>
-        </Panel>
+        </details>
         <Panel
-          title={
-            <>
-              <ShieldQuestion size={15} aria-hidden="true" /> Boundaries
-              requiring verification
-            </>
-          }
+          className="security-boundaries"
+          title="Boundaries requiring verification"
           actions={<Badge tone="warning">Unverified</Badge>}
         >
           <div className="security-notice">
@@ -248,7 +261,15 @@ export function SecurityPage({
       {editing && project && accessSession === gateway?.session_id && (
         <Dialog
           title="Confirm workspace access"
-          onClose={() => setEditing(false)}
+          onClose={() => {
+            if (
+              Object.values(scope).some(Boolean) &&
+              !window.confirm("Discard unsaved access changes?")
+            )
+              return;
+            setEditing(false);
+          }}
+          dismissOnBackdrop={false}
         >
           <p>
             Choose permissions for <strong>{project.name}</strong>. Discovery

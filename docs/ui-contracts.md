@@ -1,6 +1,6 @@
-# Phase 2A shared UI contracts
+# Shared desktop UI contracts
 
-Approved implementation baseline, 2026-11-08. Lead independently viewed all four outer Option A PNGs and checked the ZIP HTML/design note against Terra's [extraction](design-reference.md). All references are Option A. The HTML's 240px rail and 340px inspector are the unscaled layout baseline; screenshots include presentation frames that are not product chrome. The toolbar is deliberately 54px (rather than the HTML's cramped 38px) to meet the requested spacious macOS presentation. Native window controls overlay the toolbar with a scoped native drag region, never simulated circles.
+Approved implementation baseline, 2026-11-08. Lead independently viewed all four outer Option A PNGs and checked the ZIP HTML/design note against Terra's [extraction](design-reference.md). All references are Option A. The HTML's 240px rail and 340px inspector are the unscaled layout baseline; screenshots include presentation frames that are not product chrome. The original Phase 2A toolbar was 54px. The explicitly requested 2026-11-09 [UI refinement](ui-refinement/README.md) supersedes it with a 56px toolbar, traffic-light position `(16, 30)` and a 96px native leading safe area. Native window controls overlay the toolbar with scoped drag regions, never simulated circles. Final native optical/dragging verification remains open as recorded in that review.
 
 ## Ownership and files
 
@@ -10,7 +10,7 @@ Terra owns only `pages/HistoryPage.tsx`, `pages/SecurityPage.tsx`, `pages/pages.
 
 ## Visual and component rules
 
-`tokens.css` is authoritative. Use Geist UI 13/19px, Newsreader title 30/38px and prose 15/24px, JetBrains Mono metadata 11/16px and code 12/18px, with system Korean fallbacks. All fonts are bundled for offline use. UI icons are Lucide, 16px/1.5 stroke in navigation, 14px controls, 18px dialog actions. Buttons center icons and text on the same flex line; table numbers are tabular. Layout uses 4/6/12/16/20/32px increments, 1px rules, 3px control corners, flat paper panels. Main editorial inset 40px; compact screens 24px. Responsive inspector overlays under 1100px; navigation remains usable at 980px minimum native width.
+`tokens.css` is authoritative. Use Geist for dense application text (13px with unitless 1.5 line-height), Newsreader for major 30px/1.2 editorial page titles, and JetBrains Mono for identifiers/code. Captions use semantic type tokens; small technical metadata retains the engineering density. System Korean fallbacks remain. All fonts are emitted as local bundled files for offline use; data-URL font inlining is disabled to preserve the existing font CSP. UI icons are Lucide, 16px/1.5 stroke in navigation, 14px controls, 18px dialog actions. Buttons center icons and text on the same flex line; table numbers are tabular. Layout uses 4/8/12/16/20/24/32/48px tokens, 1px rules, 5px control corners, restrained panel/popover radii and flat white sections. Semantic colors use OKLCH primitives with exact hex fallbacks; components consume role tokens through the existing compatibility aliases. Main editorial inset 40px; compact screens 24px. Responsive inspector overlays under 1100px; navigation remains usable at 980px minimum native width.
 
 Shared exports from `components.tsx`: Badge (neutral/success/warning/danger/info), Button, PageHeading, Panel, EmptyState, Metric, Distribution, Table, Dialog, OpenReport, shortId, timestamp. Use these for tables/statuses/headers; no page-local lookalikes. `Table` supplies overflow, caption and header semantics. Dialog owns native modal focus containment/Escape/focus restoration. Evidence viewer and workspace switcher belong to lead. Do not use raw HTML injection. React escapes repository text; code is plain text with bounded rendering, never executable markup.
 
@@ -28,3 +28,22 @@ Frontend transport is a typed command boundary. Production uses Tauri only; plai
 
 
 Phase 2B retains this design system. Security/Handoffs pages receive typed gateway snapshots and dispatch explicit scope/decision/revocation callbacks; they own no filesystem or authorization logic. The shell owns polling, stale-response suppression and related-report workspace selection. Pending audit and report requests require a shared confirmation dialog; report approval additionally requires the frozen exact projection. No claimed client name is trusted identity. Unknown/unreachable gateway state is shown unavailable, separately from unsupported remote/provider capabilities. Native control calls run off the UI thread and retain the main-window/origin ACL.
+
+
+## Account and chrome refinement, 2026-11-09
+
+One AccountProvider shares the existing native authentication lifecycle between the
+compact top-right AccountControl and AccountPanel in settings. A verified profile is
+shown only after the native backend check succeeds. Loading, waiting, expired/revoked,
+signed-out and unavailable states remain distinct; a failed recheck hides the cached
+verified avatar. No credential enters JavaScript storage, and no second auth system
+is introduced. The popover supports Escape, outside dismissal and focus return.
+
+The current shell uses the sidebar for workspace navigation and a Settings modal
+for account/security controls; redundant top navigation and workspace breadcrumbs
+were removed. The sidebar scrolls while its bottom actions remain reachable.
+At compact desktop widths,
+Search, Run Audit and the account control remain visible. Browser zoom/reflow widths
+use the existing modal Dialog for navigation. Actual native minimum width stays 980px.
+Native CSP/capabilities, MCP controls and permission/consent handlers are unchanged.
+See the [audit, screenshots and exact verification limits](ui-refinement/README.md).

@@ -3,19 +3,19 @@ import {
   Activity,
   ArrowLeftRight,
   BookOpen,
-  ChevronDown,
   FileText,
   Folder,
   FolderOpen,
   History,
   LayoutGrid,
+  Menu,
   LockKeyhole,
   Play,
   Plus,
   Search,
-  Shield,
   SlidersHorizontal,
 } from "lucide-react";
+import { AccountControl } from "./AccountControl";
 import { api, nativeAvailable, testMode } from "./api";
 import {
   Badge,
@@ -43,7 +43,6 @@ const navigation = [
   { id: "handoffs", label: "Context Handoffs", icon: ArrowLeftRight },
   { id: "evidence", label: "Evidence Explorer", icon: BookOpen },
   { id: "history", label: "History & Snapshots", icon: History },
-  { id: "security", label: "Connections & Security", icon: Shield },
 ] as const;
 const noRuns: RunListing = { runs: [], unavailable: 0, incomplete: 0 };
 export default function App() {
@@ -129,11 +128,21 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const selectedRef = useRef<string | null>(null);
   const [view, setView] = useState<View>("reports");
+  const [modal, setModal] = useState<
+    "audit" | "switcher" | "search" | "navigation" | "settings" | null
+  >(null);
   useEffect(() => {
-    if (view !== "security" && view !== "handoffs") return;
+    if (modal !== "settings" && view !== "handoffs") return;
     void refreshGateway();
     const timer = window.setInterval(() => void refreshGateway(), 2000);
     return () => clearInterval(timer);
+  }, [view, modal]);
+  const previousView = useRef(view);
+  useEffect(() => {
+    document.title = `${navigation.find((item) => item.id === view)?.label ?? "Orven"} — Orven`;
+    if (previousView.current !== view)
+      document.getElementById("main-content")?.focus({ preventScroll: true });
+    previousView.current = view;
   }, [view]);
   const [listing, setListing] = useState(noRuns);
   const [report, setReport] = useState<Report | null>(null);
@@ -143,9 +152,6 @@ export default function App() {
   const selectionQueue = useRef(Promise.resolve());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [modal, setModal] = useState<"audit" | "switcher" | "search" | null>(
-    null,
-  );
   const [commit, setCommit] = useState("");
   const [search, setSearch] = useState("");
   const generation = useRef(0);
@@ -225,7 +231,11 @@ export default function App() {
   }, []);
   useEffect(() => {
     function key(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.key.toLowerCase() === "k" &&
+        !document.querySelector("dialog[open]")
+      ) {
         e.preventDefault();
         setModal("search");
       }
@@ -339,56 +349,109 @@ export default function App() {
     report?.evidence
       .filter((e) => e.path.toLowerCase().includes(search.toLowerCase()))
       .slice(0, 50) ?? [];
+  const sidebarContent = (
+    <>
+      <div className="rail-label">Workspace navigation</div>
+      <nav className="side-navigation" aria-label="Workspace navigation">
+        {navigation.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            className={view === id ? "active" : ""}
+            aria-current={view === id ? "page" : undefined}
+            onClick={() => {
+              setView(id);
+              setEvidenceId(null);
+              setModal(null);
+            }}
+          >
+            <Icon size={16} strokeWidth={1.5} />
+            <span>{label}</span>
+            {id === "reports" && report && (
+              <span className="nav-count">{report.findings.length}</span>
+            )}
+          </button>
+        ))}
+      </nav>
+      <div className="rail-label">
+        <span>
+          Repositories ({registryReady ? bootstrap.projects.length : "—"})
+        </span>
+        <button
+          className="icon-button"
+          aria-label="Register repository"
+          disabled={!nativeAvailable && !testMode}
+          onClick={() => void register()}
+        >
+          <Plus size={15} />
+        </button>
+      </div>
+      <div className="workspace-list">
+        {bootstrap.projects.map((p) => (
+          <button
+            key={p.id}
+            className={`workspace-item ${p.id === selected ? "active" : ""}`}
+            onClick={() => void switchProject(p.id)}
+            title={`${p.name} — ${p.path}`}
+            aria-current={p.id === selected ? "true" : undefined}
+          >
+            {p.id === selected ? (
+              <FolderOpen size={15} />
+            ) : (
+              <Folder size={15} />
+            )}
+            <span>{p.name}</span>
+            {p.id === selected && <Badge>Active</Badge>}
+          </button>
+        ))}
+        {!bootstrap.projects.length && (
+          <p className="rail-empty">
+            {registryReady
+              ? "No repositories registered"
+              : "Open native Orven to view repositories"}
+          </p>
+        )}
+      </div>
+      <div className="sidebar-bottom">
+        <button onClick={() => setModal("switcher")}>Switch workspace</button>
+        <Button
+          icon={Plus}
+          disabled={!nativeAvailable && !testMode}
+          onClick={() => void register()}
+        >
+          Register repository
+        </Button>
+        <button onClick={() => setModal("settings")}>
+          <SlidersHorizontal size={15} /> Settings
+        </button>
+      </div>
+    </>
+  );
   return (
     <div
       className={`app ${evidence ? "has-inspector" : ""} ${nativeAvailable && navigator.platform.startsWith("Mac") ? "native-macos" : ""}`}
     >
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <header className="toolbar" data-tauri-drag-region>
-        <div className="brand">Orven</div>
-        <span className="toolbar-divider" />
         <button
-          className="workspace-crumb"
-          onClick={() => setModal("switcher")}
-          aria-label="Switch workspace"
+          type="button"
+          className="navigation-toggle icon-button"
+          aria-label="Open navigation"
+          onClick={() => setModal("navigation")}
         >
-          <span>{project?.name ?? "Workspace"}</span>
-          {report && <code>{shortId(report.commit)}</code>}
-          <ChevronDown size={12} />
+          <Menu size={18} aria-hidden="true" />
         </button>
-        <nav className="top-navigation" aria-label="Primary navigation">
-          {(
-            [
-              "overview",
-              "workspace",
-              "reports",
-              "evidence",
-              "history",
-            ] as View[]
-          ).map((id) => (
-            <button
-              key={id}
-              className={view === id ? "active" : ""}
-              onClick={() => {
-                setView(id);
-                setEvidenceId(null);
-              }}
-            >
-              {id === "workspace"
-                ? "Audit Workspace"
-                : id[0].toUpperCase() + id.slice(1)}
-            </button>
-          ))}
-        </nav>
+        <div className="brand" data-tauri-drag-region>
+          Orven
+        </div>
         <div className="toolbar-actions">
-          <span className="local-chip">
-            <span className="dot" /> Local only <LockKeyhole size={11} />
-          </span>
           <Button
             icon={Search}
             onClick={() => setModal("search")}
             aria-label="Search evidence"
           >
-            Search <kbd>⌘K</kbd>
+            <span className="search-label">Search</span> <kbd>⌘K</kbd>
           </Button>
           <Button
             icon={Play}
@@ -401,96 +464,14 @@ export default function App() {
           >
             {busy ? "Auditing…" : "Run Audit"}
           </Button>
+          <AccountControl />
         </div>
       </header>
-      <aside className="sidebar">
-        <div className="engine">
-          <span className="engine-mark">OE</span>
-          <div>
-            <strong>Core Engine</strong>
-            <span className="caption muted inline">
-              <span className={`dot ${busy ? "dot-blue" : ""}`} />
-              {busy ? "inspecting snapshot" : "local · committed-text-v1"}
-            </span>
-          </div>
-        </div>
-        <div className="rail-label">
-          <span>
-            WORKSPACES ({registryReady ? bootstrap.projects.length : "—"})
-          </span>
-          <button
-            className="icon-button"
-            aria-label="Register repository"
-            disabled={!nativeAvailable && !testMode}
-            onClick={() => void register()}
-          >
-            <Plus size={15} />
-          </button>
-        </div>
-        <div className="workspace-list">
-          {bootstrap.projects.map((p) => (
-            <button
-              key={p.id}
-              className={`workspace-item ${p.id === selected ? "active" : ""}`}
-              onClick={() => void switchProject(p.id)}
-              title={p.path}
-            >
-              {p.id === selected ? (
-                <FolderOpen size={15} />
-              ) : (
-                <Folder size={15} />
-              )}
-              <span>{p.name}</span>
-              {p.id === selected && <Badge>Active</Badge>}
-            </button>
-          ))}
-          {!bootstrap.projects.length && (
-            <p className="rail-empty">
-              {registryReady
-                ? "No repositories registered"
-                : "Open native Orven to view repositories"}
-            </p>
-          )}
-        </div>
-        <div className="rail-divider" />
-        <div className="rail-label">
-          WORKSPACE: {project?.name.toUpperCase() ?? "NONE"}
-        </div>
-        <nav className="side-navigation" aria-label="Workspace navigation">
-          {navigation.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              className={view === id ? "active" : ""}
-              onClick={() => {
-                setView(id);
-                setEvidenceId(null);
-              }}
-            >
-              <Icon size={16} strokeWidth={1.5} />
-              <span>{label}</span>
-              {id === "reports" && report && (
-                <span className="nav-count">{report.findings.length}</span>
-              )}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <Button
-            icon={Plus}
-            disabled={!nativeAvailable && !testMode}
-            onClick={() => void register()}
-          >
-            Register repository
-          </Button>
-          <button onClick={() => setView("security")}>
-            <SlidersHorizontal size={15} /> Local policy & settings
-          </button>
-          <div className="caption muted">Private reports stay on this Mac.</div>
-        </div>
-      </aside>
+      <aside className="sidebar">{sidebarContent}</aside>
       <main
         className={`main ${view === "workspace" ? "main-workspace" : ""}`}
         id="main-content"
+        tabIndex={-1}
       >
         {testMode && (
           <div className="fixture-banner">
@@ -531,9 +512,6 @@ export default function App() {
           />
         )}
         {view === "history" && <HistoryPage {...pageProps} />}
-        {view === "security" && (
-          <SecurityPage {...pageProps} {...gatewayProps} />
-        )}
         {view === "overview" && (
           <>
             <PageHeading
@@ -700,6 +678,16 @@ export default function App() {
           </div>
         </Dialog>
       )}
+      {modal === "settings" && (
+        <Dialog
+          title="Settings"
+          onClose={() => setModal(null)}
+          wide
+          dismissOnBackdrop={false}
+        >
+          <SecurityPage {...pageProps} {...gatewayProps} />
+        </Dialog>
+      )}
       {modal === "switcher" && (
         <Dialog title="Switch workspace" onClose={() => setModal(null)}>
           <div className="switcher-list">
@@ -721,6 +709,11 @@ export default function App() {
           >
             Register repository…
           </Button>
+        </Dialog>
+      )}
+      {modal === "navigation" && (
+        <Dialog title="Navigation" onClose={() => setModal(null)}>
+          <aside className="sidebar mobile-sidebar">{sidebarContent}</aside>
         </Dialog>
       )}
       {modal === "search" && (

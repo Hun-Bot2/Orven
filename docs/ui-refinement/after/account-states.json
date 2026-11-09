@@ -1,0 +1,37 @@
+[
+  {
+    "mode": "signed_out",
+    "visible": true,
+    "keyboardDismissal": true
+  },
+  {
+    "mode": "authenticated",
+    "visible": true,
+    "keyboardDismissal": true
+  },
+  {
+    "mode": "waiting",
+    "visible": true,
+    "keyboardDismissal": true
+  },
+  {
+    "mode": "expired",
+    "visible": true,
+    "keyboardDismissal": true
+  },
+  {
+    "mode": "error",
+    "visible": true,
+    "keyboardDismissal": true
+  },
+  {
+    "mode": "loading",
+    "visible": true,
+    "keyboardDismissal": true
+  },
+  {
+    "mode": "missing_avatar",
+    "visible": true,
+    "keyboardDismissal": true
+  }
+]

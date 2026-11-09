@@ -123,11 +123,30 @@ async function mount(page: Page) {
   await page.goto("/");
 }
 async function navigate(page: Page, name: string) {
+  if (name === "Connections & Security") {
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    return;
+  }
   await page
     .getByRole("navigation", { name: "Workspace navigation" })
     .getByRole("button", { name })
     .click();
 }
+test("unsaved access edits require confirmation before dismissal", async ({
+  page,
+}) => {
+  await mount(page);
+  await navigate(page, "Connections & Security");
+  await page.getByRole("button", { name: "Edit access" }).click();
+  const dialog = page.getByRole("dialog", { name: "Confirm workspace access" });
+  await dialog.getByLabel("Request audits").check();
+  page.once("dialog", (prompt) => prompt.dismiss());
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeVisible();
+  page.once("dialog", (prompt) => prompt.accept());
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+});
 test("gateway pages: permissions require local confirmation and start denied", async ({
   page,
 }) => {
