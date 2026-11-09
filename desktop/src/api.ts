@@ -23,6 +23,14 @@ async function call<T>(
   return invoke<T>(command, args);
 }
 export const api = {
+  accountSnapshot: () =>
+    call<import("./account-types").AccountView>("account_snapshot"),
+  accountBegin: () => call<void>("account_begin"),
+  accountPoll: () =>
+    call<import("./account-types").AccountView>("account_poll"),
+  accountCancel: () => call<void>("account_cancel"),
+  accountLogout: () =>
+    call<import("./account-types").AccountView>("account_logout"),
   gatewaySnapshot: (sessionId?: string) =>
     call<{
       ok: boolean;

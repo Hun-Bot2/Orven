@@ -18,6 +18,11 @@ Build one deterministic vertical slice: register a root → resolve a commit →
 
 Execution split: **2A** is the local desktop shell, registered project switching, existing-core audit execution, stored reports/history and evidence viewing using Option A. See [2A receipts and remaining manual gate](phase-2a.md). **2B** adds explicit publication/retention/revocation/deletion, MCP transports/auth and actual host interoperability. The full exit gate below is not met by 2A alone.
 
+The separately authorized [Cloud Handoff desktop identity phase A.1](desktop-auth.md)
+adds opt-in GitHub browser login and a dedicated desktop credential before cloud MCP
+OAuth/tools. Its local test/build receipts do not close the native real-login or
+live assistant interoperability gates, and it grants no repository-writing authority.
+
 Add the Tauri viewer and native registration/run/export flow. Choose a small frontend. Implement scoped IPC and safe Markdown rendering. Under amended ADR-004, add the five consent-controlled workspace tools in headless stdio. HTTP remains deferred until authorization and host validation are available. Published bundles contain only previewed data; disabling publication removes access to those bundles without changing local source evidence.
 
 Use an operator-configured supported tunnel for a ChatGPT private connection where available; it is connectivity, not a runner. Use Claude Desktop stdio for local integration. Provision no public endpoint automatically. Implement HTTP authorization before any Internet exposure.

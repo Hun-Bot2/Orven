@@ -44,6 +44,42 @@ Date: 2026-11-06. **Accepted** means chosen for this architecture; nothing here 
 
 **Alternatives and consequences:** An always-on Mac relay fails when that Mac is offline. Managed SaaS tenancy, workflow engines, provider SDK sidecar services and model-to-model orchestration are deferred. A runner introduces operator trust and export risk; an adapter introduces executable/configuration/egress risk. Neither is enabled merely because its underlying protocol exists.
 
+## ADR-006 — Cloud Handoff upstream authentication
+
+**Status: Accepted for Phase A, 2026-11-09, by the explicit GitHub authentication request.**
+The separate Cloud Handoff Worker uses GitHub OAuth through oauth4webapi, browser-bound
+state and S256 PKCE. The verified GitHub account ID maps uniquely to an internal D1
+user UUID. Existing unlinked users are not automatically linked. D1 atomically consumes
+login attempts and holds hashed opaque browser sessions; eventually consistent KV is
+not used for one-use login state. GitHub access tokens remain transient and never
+become MCP credentials. A configured canonical HTTPS origin fixes callbacks and
+host-only cookies; missing configuration fails closed.
+
+This supersedes the provider-selection uncertainty only for Cloud Handoff browser
+authentication. It does not enable the local audit gateway's HTTP transport or create
+an OAuth authorization server. Browser login grants no target, repository, MCP or
+device authority. MCP OAuth, tools and desktop writing remain later reviewed phases.
+No remote migration, resource provisioning or deployment is authorized by this ADR.
+See [Phase A contract and validation scope](../cloud/handoff/README.md).
+
+### Phase A.1 amendment to ADR-006 — Desktop identity handoff
+
+**Accepted for Phase A.1, 2026-11-09, by the explicit desktop authentication request.**
+The existing Tauri settings page opens the system browser through a Rust-only opener.
+A random-port IPv4 loopback listener, state and S256 PKCE bind the native transaction.
+GitHub login state also binds the browser transaction to its desktop flow. A same-origin,
+browser-session-bound confirmation displays the verified GitHub account before issuing
+a one-use 60-second Orven code. Code exchange requires the original verifier and exact
+loopback redirect URI. A dedicated hashed D1 credential expires in 30 days and grants
+only desktop profile/revocation access, never MCP, device inbox or repository authority.
+
+Shared Rust Core validates origin, callback and profile policy; Tauri owns only the
+HTTPS, browser, loopback and macOS Keychain adapters. Credential values stay out of IPC
+and frontend storage. Session restoration revalidates against the backend; logout
+revokes before deleting the Keychain item. Network failure retains it for retry.
+Unsupported OS storage fails closed. This adds no desktop-writing capability or new
+Cloudflare resource. See [A.1 protocol and manual gate](desktop-auth.md).
+
 ## Open questions and decision gates
 
 | Question | Current assumption or candidate | Resolve by |

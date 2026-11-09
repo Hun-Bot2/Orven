@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+pub mod desktop_auth;
 pub mod gateway;
 pub mod workspace;
 // Offline, committed-snapshot inspection. Never invokes repository commands.

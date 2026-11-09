@@ -106,4 +106,18 @@ Run the same headless audit as a batch job, store results on runner-local disk, 
 | Mac reconnects | Operator imports a selected validated report bundle; IDs, origin and snapshot identity are preserved. No automatic overwrite or reconciliation. |
 | Runner/provider unavailable | Existing local reports remain usable; remote/AI work is unavailable or failed, with no silent local upload or fallback provider. |
 
-Runner OS, hosting, OAuth provider, transfer format and sandbox mechanism remain unresolved. Their security and operational proof is required before enabling remote mode, not before building a useful local audit.
+Runner OS, hosting, transfer format and sandbox mechanism remain unresolved. Their security and operational proof is required before enabling remote mode, not before building a useful local audit.
+
+The separately authorized [Cloud Handoff Phase A](../cloud/handoff/README.md) selects
+GitHub for upstream browser identity only (ADR-006). It uses the existing Worker/D1
+modules, not the Rust audit engine, and grants no repository authority. MCP OAuth
+authorization-server behavior and live remote interoperability remain unimplemented.
+
+[Cloud Handoff Phase A.1](desktop-auth.md) adds an opt-in GitHub identity section to
+the existing desktop settings. Its browser-confirmed loopback handoff yields a
+revocable desktop credential stored in macOS Keychain. Rust Core validates callback
+and profile policy, and the shell supplies OS/network adapters. GitHub tokens and
+browser cookies never enter the desktop. Account identity confers no audit, target,
+repository-writing, MCP or device-inbox authority. Avatar bytes are downloaded only
+by Rust from the fixed GitHub avatar host and delivered as bounded image data; the
+WebView CSP's network policy remains unchanged.

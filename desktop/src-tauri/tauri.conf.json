@@ -46,7 +46,12 @@
             "allow-run-audit",
             "core:window:allow-start-dragging",
             "allow-gateway-snapshot",
-            "allow-gateway-control"
+            "allow-gateway-control",
+            "allow-account-snapshot",
+            "allow-account-begin",
+            "allow-account-poll",
+            "allow-account-cancel",
+            "allow-account-logout"
           ]
         }
       ]

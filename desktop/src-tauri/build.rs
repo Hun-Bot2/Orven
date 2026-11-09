@@ -9,6 +9,11 @@ fn main() {
             "run_audit",
             "gateway_snapshot",
             "gateway_control",
+            "account_snapshot",
+            "account_begin",
+            "account_poll",
+            "account_cancel",
+            "account_logout",
         ]),
     ))
     .expect("Tauri build configuration failed");

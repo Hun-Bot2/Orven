@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
+mod account;
 mod workspace;
+use tauri_plugin_opener::OpenerExt;
+struct AccountState(Mutex<account::Account>);
 use std::sync::{
     Mutex,
     atomic::{AtomicBool, Ordering},
@@ -196,12 +199,109 @@ async fn gateway_control<R: tauri::Runtime>(
         .await
         .map_err(|_| "Gateway interrupted")?
 }
+#[tauri::command]
+async fn account_snapshot<R: tauri::Runtime>(
+    window: WebviewWindow<R>,
+    app: tauri::AppHandle<R>,
+) -> Result<account::AccountView, String> {
+    authorize(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<AccountState>()
+            .0
+            .lock()
+            .map_err(|_| "Account unavailable")?
+            .restore()
+    })
+    .await
+    .map_err(|_| "Account request interrupted")?
+}
+#[tauri::command]
+async fn account_begin<R: tauri::Runtime>(
+    window: WebviewWindow<R>,
+    app: tauri::AppHandle<R>,
+) -> Result<(), String> {
+    authorize(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AccountState>();
+        let mut account = state.0.lock().map_err(|_| "Account unavailable")?;
+        let url = account.begin()?;
+        if app.opener().open_url(url, None::<&str>).is_err() {
+            account.cancel();
+            return Err("Cannot open the system browser".into());
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|_| "Account request interrupted")?
+}
+#[tauri::command]
+async fn account_poll<R: tauri::Runtime>(
+    window: WebviewWindow<R>,
+    app: tauri::AppHandle<R>,
+) -> Result<account::AccountView, String> {
+    authorize(&window)?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        app.state::<AccountState>()
+            .0
+            .lock()
+            .map_err(|_| "Account unavailable")?
+            .poll()
+    })
+    .await
+    .map_err(|_| "Account request interrupted")??;
+    if result.status == "authenticated" {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+    Ok(result)
+}
+#[tauri::command]
+async fn account_cancel<R: tauri::Runtime>(
+    window: WebviewWindow<R>,
+    app: tauri::AppHandle<R>,
+) -> Result<(), String> {
+    authorize(&window)?;
+    // Serialized after an in-flight exchange: cancellation must also revoke a
+    // credential that arrived while the user was clicking Cancel.
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<AccountState>()
+            .0
+            .lock()
+            .map_err(|_| "Account unavailable")?
+            .logout()
+            .map(|_| ())
+    })
+    .await
+    .map_err(|_| "Account request interrupted")?
+}
+#[tauri::command]
+async fn account_logout<R: tauri::Runtime>(
+    window: WebviewWindow<R>,
+    app: tauri::AppHandle<R>,
+) -> Result<account::AccountView, String> {
+    authorize(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<AccountState>()
+            .0
+            .lock()
+            .map_err(|_| "Account unavailable")?
+            .logout()
+    })
+    .await
+    .map_err(|_| "Account request interrupted")?
+}
 fn context<R: tauri::Runtime>() -> tauri::Context<R> {
     tauri::generate_context!()
 }
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_opener::Builder::new()
+                .open_js_links_on_click(false)
+                .build(),
+        )
+        .manage(AccountState(Mutex::new(account::Account::new())))
         .setup(|app| {
             let base = if cfg!(debug_assertions) {
                 std::env::var_os("ORVEN_DEV_DATA_DIR")
@@ -228,7 +328,12 @@ fn main() {
             read_report,
             run_audit,
             gateway_snapshot,
-            gateway_control
+            gateway_control,
+            account_snapshot,
+            account_begin,
+            account_poll,
+            account_cancel,
+            account_logout
         ])
         .run(context())
         .expect("Orven native application failed");
@@ -267,6 +372,7 @@ mod tests {
             .unwrap();
         workspace.select(&project).unwrap();
         let app = tauri::test::mock_builder()
+            .manage(AccountState(Mutex::new(account::Account::new())))
             .plugin(tauri_plugin_dialog::init())
             .manage(DesktopState {
                 workspace: Mutex::new(workspace),
@@ -279,7 +385,12 @@ mod tests {
                 read_report,
                 run_audit,
                 gateway_snapshot,
-                gateway_control
+                gateway_control,
+                account_snapshot,
+                account_begin,
+                account_poll,
+                account_cancel,
+                account_logout
             ])
             .build(context())
             .unwrap();
@@ -331,6 +442,26 @@ mod tests {
             invoke.url = "https://example.com".parse().unwrap();
             assert!(tauri::test::get_ipc_response(&main, invoke).is_err());
         }
+        for command in [
+            "account_snapshot",
+            "account_begin",
+            "account_poll",
+            "account_cancel",
+            "account_logout",
+        ] {
+            let mut invoke = request();
+            invoke.cmd = command.into();
+            assert!(tauri::test::get_ipc_response(&other, invoke).is_err());
+            let mut remote = request();
+            remote.cmd = command.into();
+            remote.url = "https://attacker.example".parse().unwrap();
+            assert!(tauri::test::get_ipc_response(&main, remote).is_err());
+        }
+        let mut generic_open = request();
+        generic_open.cmd = "plugin:opener|open_url".into();
+        generic_open.body =
+            tauri::ipc::InvokeBody::Json(serde_json::json!({"url":"https://attacker.example"}));
+        assert!(tauri::test::get_ipc_response(&main, generic_open).is_err());
         let mut forbidden_dialog = request();
         forbidden_dialog.cmd = "plugin:dialog|open".into();
         forbidden_dialog.body = tauri::ipc::InvokeBody::Json(serde_json::json!({"options":{}}));
