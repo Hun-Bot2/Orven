@@ -171,3 +171,121 @@ same-origin approval, Cancel/Escape, and a missing-avatar fallback. Cancel dismi
 the page UI; it does not claim to revoke a server session or delete the pending flow.
 The flow retains its existing expiry. This presentation change requires Worker
 deployment separately from rebuilding the desktop. No additional permission is granted.
+
+## Approval form Origin correction, 2026-11-10
+
+The initial confirmation page used `Referrer-Policy: no-referrer`. Real browser
+navigation-form POSTs then sent `Origin: null`, so the unchanged exact-origin CSRF
+check correctly rejected Continue with HTTP 403. Earlier browser coverage checked
+only method and form data and therefore missed the Origin mismatch. A new browser
+assertion reproduced the failure before the fix (`null` instead of the canonical
+origin).
+
+Only the confirmation HTML response now uses `strict-origin`: browser approval
+retains the canonical HTTPS Origin, while Referer contains only its origin and no
+path/query. External avatar images still explicitly use `no-referrer`; other auth
+responses retain the existing no-referrer policy. The server still rejects missing,
+`null`, and foreign Origins. Browser regression checks assert the emitted Origin
+and origin-only Referer; local D1 tests verify the original authorization denials.
+This is a Worker response-header correction, not a reason to allow null origins or
+change PKCE, cookies, flow binding, credentials or migrations. Deployment is separate
+and was not performed by this fix.
+
+Verification for this correction: Worker TypeScript and 53 local Workers/D1 tests
+passed; desktop TypeScript/formatting, all 35 Playwright tests and the production
+CSP check passed. The real-browser form test now verifies emitted Origin and
+origin-only Referer, while the Worker test still rejects literal null Origin.
+No remote deployment or real GitHub login was performed for this correction.
+
+## Full browser/Worker boundary verification, 2026-11-10
+
+The next reported failure was on `/auth/desktop/approve`. Its older generic 400
+combined missing/expired flow, missing browser session, account mismatch, form
+binding mismatch and reused approval. Those cases now return fixed `stage`/`code`
+values and `X-Orven-Auth-Error-ID`, with only the same labels and a random ID logged.
+The operator's specific remote 400 cause remains unverified until the corrected
+Worker is deployed and a fresh flow is tried; this change does not guess or extend
+expiration. Flow TTL remains ten minutes; approved codes remain one minute.
+
+### Zod boundaries
+
+`zod/v4` already validates start and exchange requests. Approval now also uses a
+strict `{ flow_id }` schema and rejects duplicate/unknown fields before converting
+URLSearchParams to an object. Otherwise duplicate fields would silently disappear.
+A separate schema validates the exact generated IPv4 loopback callback before it
+can enter CSP. Refinements return validation failure instead of throwing on invalid
+URL/port input. Zod validates shape, not identity, expiry, ownership or atomicity:
+browser cookies, same-user binding, D1 expiry checks and one-use conditional UPDATE
+and DELETE remain required and unchanged.
+
+### Redirect/CSP defect found by connected testing
+
+The previous browser fixture fulfilled approval with HTTP 200, while Worker unit
+tests inspected a 303 without a real browser following it. The connected test found
+that the confirmation's `form-action 'self'` blocked the legitimate redirect to the
+bound loopback callback. The confirmation CSP now permits only self and the exact
+validated per-flow `http://127.0.0.1:<port>/orven-auth/callback`; no wildcard local
+ports, caller-selected URL, extra network API or arbitrary local service is enabled.
+The server's same-origin approval check and native state/PKCE validation remain.
+Continue is disabled on submission to prevent accidental duplicate requests.
+
+### Executed checks
+
+From `desktop/`, after installing its dependencies and `cloud/handoff` dependencies:
+
+```sh
+npm run test:auth:integration
+```
+
+This uses the already locked Miniflare/esbuild toolchain, the actual bundled Worker,
+the actual migrations on isolated ephemeral local D1, and real Chrome cookies and
+HTTPS form/redirect processing. GitHub is synthetic and all its outbound calls are
+intercepted. Separate synthetic Worker/provider hostnames emulate site boundaries;
+a real temporary IPv4 HTTP listener receives the callback. Self-signed certificates
+and certificate-error ignoring exist only in this disposable test browser context,
+never in the production Worker, Tauri client or system browser. No remote D1, real
+GitHub token, `.dev.vars` or existing account/profile data is used.
+
+The connected test passed normal browser login -> account confirmation -> approval
+-> loopback -> PKCE code exchange -> authenticated profile -> revocation -> rejection,
+plus denial of replay, expired flow, missing browser session and duplicate form fields.
+Worker tests cover concurrent approvals/exchanges, cross-account binding, unknown
+fields, unsafe callback destinations and diagnostic privacy separately.
+
+Results at that checkpoint: 66 Worker tests; 36 Playwright tests; four connected
+browser/Worker scenarios; native workspace 43 passed and one real Keychain test
+ignored; TypeScript, formatting, production CSP and Clippy passed. The portrait UI
+test at that checkpoint loaded the percent-encoded image URI then used by Rust,
+checks the verified avatar and accessible username, then removes the image at logout.
+A missing/failed avatar retains initials. These checks do not prove real GitHub
+interoperability, OS Keychain storage or final installed-app behavior. No deployment,
+commit, push, remote migration or account-data change was performed by this correction.
+
+### Avatar compatibility follow-up, 2026-11-10
+
+The desktop now derives a 128-pixel request from the Core-validated GitHub account
+URL, instead of fetching the original-size image. It accepts bounded PNG, JPEG,
+GIF and WebP responses with matching raster signatures, rejects SVG/HTML and
+bodies above 256 KiB, and sends a standard Base64 data URI over IPC. The WebView
+retains its existing `img-src 'self' data:` policy and gains no remote network
+permission. Images are fetched without desktop credentials or browser cookies;
+redirects remain disabled. Base64 uses the version already present in Cargo.lock.
+
+A missing photo does not invalidate a verified login. The compact account menu
+provides **Reload photo**, using the existing authenticated session restoration
+path. Failures log only `orven_avatar_unavailable` and a fixed reason such as
+`network_error`, `unsupported_image_type` or `image_too_large`; no URL, account
+identifier, image body or credential is logged.
+
+The opt-in `public_github_avatar_fetch` Rust test successfully fetched and encoded
+a public fixture account's photo using the real native HTTPS adapter. This is not
+proof of the user's own photo or WKWebView rendering; that remains a native-app
+verification step after replacing and restarting the built application. The exact
+failure affecting the reported account was not observed.
+
+Validation for this follow-up: 37 Playwright tests passed; 44 Rust workspace tests
+passed with two opt-in tests excluded. The public CDN test was separately run and
+passed; the real Keychain test was not run. Clippy with warnings denied passed.
+TypeScript/build and production CSP checks passed. A pre-existing socket test's
+single immediate poll was replaced with a bounded wait for the nonblocking
+listener, preserving its fail-closed assertions and production behavior.

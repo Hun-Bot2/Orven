@@ -182,12 +182,14 @@ export function Dialog({
   onClose,
   wide = false,
   dismissOnBackdrop = true,
+  className = "",
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
   dismissOnBackdrop?: boolean;
+  className?: string;
 }) {
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
@@ -207,7 +209,7 @@ export function Dialog({
   return (
     <dialog
       aria-labelledby={titleId}
-      className={`dialog ${wide ? "dialog-wide" : ""}`}
+      className={`dialog ${wide ? "dialog-wide" : ""} ${className}`}
       ref={ref}
       onCancel={(e) => {
         e.preventDefault();

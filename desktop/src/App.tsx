@@ -15,6 +15,7 @@ import {
   Search,
   SlidersHorizontal,
 } from "lucide-react";
+import orvenLogo from "./assets/orven-logo.png";
 import { AccountControl } from "./AccountControl";
 import { api, nativeAvailable, testMode } from "./api";
 import {
@@ -443,6 +444,15 @@ export default function App() {
           <Menu size={18} aria-hidden="true" />
         </button>
         <div className="brand" data-tauri-drag-region>
+          <img
+            className="brand-logo"
+            src={orvenLogo}
+            alt=""
+            width={24}
+            height={24}
+            draggable={false}
+            data-tauri-drag-region
+          />
           Orven
         </div>
         <div className="toolbar-actions">
@@ -681,6 +691,7 @@ export default function App() {
       {modal === "settings" && (
         <Dialog
           title="Settings"
+          className="settings-dialog"
           onClose={() => setModal(null)}
           wide
           dismissOnBackdrop={false}

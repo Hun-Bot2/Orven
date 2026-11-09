@@ -1,5 +1,5 @@
 import { AccountPanel } from "../AccountPanel";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import {
   Badge,
@@ -22,6 +22,13 @@ export function SecurityPage({
   onAccess,
   onRevoke,
 }: PageProps & GatewayProps) {
+  const prefix = useId();
+  const sections = [
+    ["account", "GitHub account"],
+    ["gateway", "Gateway"],
+    ["workspace", "Workspace permissions"],
+    ["policy", "Audit policy"],
+  ] as const;
   const [editing, setEditing] = useState(false);
   const [accessSession, setAccessSession] = useState("");
   const [scope, setScope] = useState<AccessScope>({
@@ -51,7 +58,29 @@ export function SecurityPage({
       >
         Manage your account and local workspace access.
       </PageHeading>
-      <AccountPanel />
+      <nav
+        className="settings-section-navigation"
+        aria-label="Settings sections"
+      >
+        {sections.map(([key, label]) => (
+          <a
+            key={key}
+            href={`#${prefix}-${key}`}
+            onClick={(event) => {
+              event.preventDefault();
+              const section = document.getElementById(`${prefix}-${key}`);
+              if (section instanceof HTMLDetailsElement) section.open = true;
+              section?.scrollIntoView({ block: "start" });
+              section?.focus({ preventScroll: true });
+            }}
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+      <div id={`${prefix}-account`} className="settings-section" tabIndex={-1}>
+        <AccountPanel />
+      </div>
       <div className="security-metrics">
         <Metric label="REPOSITORY ACCESS" value="Read-only audit">
           Committed Git · loose objects only
@@ -69,139 +98,157 @@ export function SecurityPage({
         </Metric>
       </div>
       <div className="security-content">
-        <Panel
-          title="Local gateway session"
-          actions={
-            <Badge tone={gateway?.running ? "info" : "neutral"}>
-              {gateway
-                ? gateway.running
-                  ? "Running locally"
-                  : "Stopped"
-                : "Unavailable"}
-            </Badge>
-          }
+        <div
+          id={`${prefix}-gateway`}
+          className="settings-section"
+          tabIndex={-1}
         >
-          <div className="gateway-body">
-            {gatewayError && (
-              <details className="security-details">
-                <summary>Connection diagnostics</summary>
-                <p>{gatewayError}</p>
-              </details>
-            )}
-            {gateway ? (
-              <>
-                {gateway.sessions && gateway.sessions.length > 0 && (
-                  <label className="gateway-connection">
-                    MCP connection{" "}
-                    <select
-                      aria-label="MCP connection"
-                      value={gateway.session_id}
-                      onChange={(event) =>
-                        onSelectGatewaySession(event.target.value)
-                      }
-                    >
-                      {!gateway.sessions.some(
-                        (session) => session.session_id === gateway.session_id,
-                      ) && (
-                        <option value={gateway.session_id}>
-                          Disconnected · {gateway.session_id.slice(0, 8)}
-                        </option>
-                      )}
-                      {gateway.sessions.map((session) => (
-                        <option
-                          key={session.session_id}
-                          value={session.session_id}
-                        >
-                          {session.client || "Unknown client"} (untrusted) ·{" "}
-                          {session.session_id.slice(0, 8)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
+          <Panel
+            title="Local gateway session"
+            actions={
+              <Badge tone={gateway?.running ? "info" : "neutral"}>
+                {gateway
+                  ? gateway.running
+                    ? "Running locally"
+                    : "Stopped"
+                  : "Unavailable"}
+              </Badge>
+            }
+          >
+            <div className="gateway-body">
+              {gatewayError && (
                 <details className="security-details">
-                  <summary>Transport and session identity</summary>
-                  <p>
-                    <strong>Transport:</strong> {gateway.transport} ·{" "}
-                    <strong>Session:</strong> <code>{gateway.session_id}</code>
-                  </p>
+                  <summary>Connection diagnostics</summary>
+                  <p>{gatewayError}</p>
                 </details>
-                <p>
-                  <strong>Client-reported name (untrusted):</strong>{" "}
-                  {gateway.client || "Not supplied"}. The session, not this
-                  name, owns authority.
-                </p>
-              </>
-            ) : (
-              <p>Gateway unavailable. No live session state is available.</p>
-            )}
-            <p>
-              Remote HTTP and provider connectivity are not established by this
-              local session.
-            </p>
-          </div>
-        </Panel>
-        <Panel
-          title="Workspace permissions"
-          actions={
-            project && gateway?.running ? (
-              <div className="gateway-actions">
-                <Button onClick={openAccess}>Edit access</Button>
-                <Button
-                  data-tone="danger"
-                  disabled={!access}
-                  onClick={() => onRevoke(project.id)}
-                >
-                  Revoke access
-                </Button>
-              </div>
-            ) : undefined
-          }
+              )}
+              {gateway ? (
+                <>
+                  {gateway.sessions && gateway.sessions.length > 0 && (
+                    <label className="gateway-connection">
+                      MCP connection{" "}
+                      <select
+                        aria-label="MCP connection"
+                        value={gateway.session_id}
+                        onChange={(event) =>
+                          onSelectGatewaySession(event.target.value)
+                        }
+                      >
+                        {!gateway.sessions.some(
+                          (session) =>
+                            session.session_id === gateway.session_id,
+                        ) && (
+                          <option value={gateway.session_id}>
+                            Disconnected · {gateway.session_id.slice(0, 8)}
+                          </option>
+                        )}
+                        {gateway.sessions.map((session) => (
+                          <option
+                            key={session.session_id}
+                            value={session.session_id}
+                          >
+                            {session.client || "Unknown client"} (untrusted) ·{" "}
+                            {session.session_id.slice(0, 8)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <details className="security-details">
+                    <summary>Transport and session identity</summary>
+                    <p>
+                      <strong>Transport:</strong> {gateway.transport} ·{" "}
+                      <strong>Session:</strong>{" "}
+                      <code>{gateway.session_id}</code>
+                    </p>
+                  </details>
+                  <p>
+                    <strong>Client-reported name (untrusted):</strong>{" "}
+                    {gateway.client || "Not supplied"}. The session, not this
+                    name, owns authority.
+                  </p>
+                </>
+              ) : (
+                <p>Gateway unavailable. No live session state is available.</p>
+              )}
+              <p>
+                Remote HTTP and provider connectivity are not established by
+                this local session.
+              </p>
+            </div>
+          </Panel>
+        </div>
+        <div
+          id={`${prefix}-workspace`}
+          className="settings-section"
+          tabIndex={-1}
         >
-          <div className="gateway-body">
-            {!project ? (
-              <p>Select a workspace to review permissions.</p>
-            ) : !gateway ? (
-              <p>
-                Permissions unavailable while the gateway cannot be reached.
-              </p>
-            ) : !gateway.running ? (
-              <p>
-                The selected gateway is stopped. Workspace permissions are
-                unavailable; select a live connection to review access.
-              </p>
-            ) : (
-              <>
-                <p>
-                  <strong className="security-workspace-name">
-                    {project.name}
-                  </strong>{" "}
-                  ·{" "}
-                  {access
-                    ? `${Object.values(access.scope).filter(Boolean).length} of 3 permissions allowed`
-                    : "No active grant"}
-                </p>
-                <div className="gateway-badges">
-                  <Badge>
-                    Discovery: {access?.scope.discover ? "Allowed" : "Denied"}
-                  </Badge>
-                  <Badge>
-                    Audit: {access?.scope.audit ? "Allowed" : "Denied"}
-                  </Badge>
-                  <Badge>
-                    Reports: {access?.scope.reports ? "Allowed" : "Denied"}
-                  </Badge>
+          <Panel
+            title="Workspace permissions"
+            actions={
+              project && gateway?.running ? (
+                <div className="gateway-actions">
+                  <Button onClick={openAccess}>Edit access</Button>
+                  <Button
+                    data-tone="danger"
+                    disabled={!access}
+                    onClick={() => onRevoke(project.id)}
+                  >
+                    Revoke access
+                  </Button>
                 </div>
+              ) : undefined
+            }
+          >
+            <div className="gateway-body">
+              {!project ? (
+                <p>Select a workspace to review permissions.</p>
+              ) : !gateway ? (
                 <p>
-                  Discovery permits transmitting the workspace name. Each audit
-                  and report transmission requires separate local approval; a
-                  grant alone does not approve a request.
+                  Permissions unavailable while the gateway cannot be reached.
                 </p>
-              </>
-            )}
-          </div>
-        </Panel>
-        <details className="security-details security-policy">
+              ) : !gateway.running ? (
+                <p>
+                  The selected gateway is stopped. Workspace permissions are
+                  unavailable; select a live connection to review access.
+                </p>
+              ) : (
+                <>
+                  <p>
+                    <strong className="security-workspace-name">
+                      {project.name}
+                    </strong>{" "}
+                    ·{" "}
+                    {access
+                      ? `${Object.values(access.scope).filter(Boolean).length} of 3 permissions allowed`
+                      : "No active grant"}
+                  </p>
+                  <div className="gateway-badges">
+                    <Badge>
+                      Discovery: {access?.scope.discover ? "Allowed" : "Denied"}
+                    </Badge>
+                    <Badge>
+                      Audit: {access?.scope.audit ? "Allowed" : "Denied"}
+                    </Badge>
+                    <Badge>
+                      Reports: {access?.scope.reports ? "Allowed" : "Denied"}
+                    </Badge>
+                  </div>
+                  <p>
+                    Discovery permits transmitting the workspace name. Each
+                    audit and report transmission requires separate local
+                    approval; a grant alone does not approve a request.
+                  </p>
+                </>
+              )}
+            </div>
+          </Panel>
+        </div>
+        <details
+          id={`${prefix}-policy`}
+          tabIndex={-1}
+          className="security-details security-policy settings-section"
+        >
           <summary>
             Implemented audit policy{" "}
             <span className="caption muted">

@@ -62,14 +62,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  min-width: 36px;
+  min-height: 32px;
+  min-width: 32px;
   padding: 4px 10px;
   border: 1px solid transparent;
   border-radius: var(--radius);
   background: transparent;
   color: var(--secondary);
   font: 500 var(--text-caption)/1.4 var(--sans);
+  gap: 6px;
 }
 .account-trigger-authenticated {
   padding: 3px;
@@ -85,46 +86,67 @@
   background: var(--color-info-bg);
 }
 .account-trigger-signed_out {
-  padding: 6px;
+  padding: 5px 10px;
+  border-color: var(--color-input-border);
+  background: var(--paper);
   color: var(--ink);
-}
-.account-trigger:hover {
-  background: var(--color-bg-hover);
 }
 .account-popover {
   position: absolute;
-  inset-block-start: calc(100% + 10px);
+  inset-block-start: calc(100% + 8px);
   inset-inline-end: 0;
-  width: 344px;
+  z-index: 1;
+  width: 260px;
   max-width: calc(100vw - 24px);
-  max-height: calc(100dvh - 100px);
+  max-height: calc(100dvh - var(--toolbar-height) - 20px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--space-lg);
+  padding: 12px;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: var(--radius-popover);
-  box-shadow:
-    0 6px 22px rgb(0 0 0 / 0.1),
-    0 1px 4px rgb(0 0 0 / 0.04);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.08);
   white-space: normal;
   user-select: text;
 }
 .account-popover-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
   font: 600 var(--text-caption)/1.4 var(--sans);
   color: var(--secondary);
-  margin-bottom: var(--space-base);
-}
-.account-popover-heading .text-button {
-  min-height: 28px;
+  margin-bottom: 8px;
 }
 .account-panel-compact {
   padding: 0;
+  gap: 8px;
+  font-size: var(--text-caption);
 }
-.account-panel-compact .account-status .caption {
+.account-panel-compact .account-summary {
+  gap: 10px;
+}
+.account-username {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: 500 var(--text-body)/1.4 var(--sans);
+}
+.account-panel-compact .account-error {
+  font-size: var(--text-caption);
+}
+.account-compact-status {
+  color: var(--secondary);
+  line-height: 1.5;
+}
+.account-compact-status:empty,
+.account-panel-compact .account-actions:empty {
   display: none;
+}
+.account-panel-compact .account-actions .button {
+  flex: 1;
+}
+@media (hover: hover) {
+  .account-trigger:hover {
+    background: var(--color-bg-hover);
+  }
+}
+
+.account-trigger svg {
+  flex-shrink: 0;
 }

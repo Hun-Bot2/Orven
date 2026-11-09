@@ -19,6 +19,8 @@ export function AccountAvatar({ size = 40 }: { size?: number }) {
     <img
       className="account-avatar"
       src={src}
+      decoding="async"
+      draggable={false}
       alt={`${account.profile?.username}'s GitHub avatar`}
       width={size}
       height={size}
@@ -35,7 +37,13 @@ export function AccountAvatar({ size = 40 }: { size?: number }) {
     </span>
   );
 }
-export function AccountPanel({ compact = false }: { compact?: boolean }) {
+export function AccountPanel({
+  compact = false,
+  onActionStart,
+}: {
+  compact?: boolean;
+  onActionStart?: () => void;
+}) {
   const {
     account,
     busy,
@@ -49,9 +57,80 @@ export function AccountPanel({ compact = false }: { compact?: boolean }) {
     logout,
     cancel,
   } = useAccount();
+  const run = (action: () => Promise<void>) => {
+    onActionStart?.();
+    void action();
+  };
+  if (compact) {
+    const status =
+      state === "loading"
+        ? "Checking account…"
+        : state === "waiting"
+          ? "Complete sign-in in your browser."
+          : state === "expired"
+            ? "Session ended. Sign in again."
+            : "";
+    return (
+      <div className="account-panel account-panel-compact" aria-busy={busy}>
+        {verified && (
+          <div className="account-summary">
+            <AccountAvatar size={32} />
+            <strong className="account-username">
+              {account.profile!.username}
+            </strong>
+          </div>
+        )}
+        <div className="account-compact-status" role="status">
+          {status}
+        </div>
+        {state === "unavailable" && (
+          <p className="account-error" role="alert">
+            Couldn’t verify your account. A saved session may remain.
+          </p>
+        )}
+        {!enabled && <p>Open native Orven to sign in.</p>}
+        <div className="account-actions">
+          {(state === "signed_out" || state === "expired") && !uncertain && (
+            <Button disabled={!enabled || busy} onClick={() => run(begin)}>
+              {state === "expired" ? "Sign in again" : "Sign in with GitHub"}
+            </Button>
+          )}
+          {verified && !account.avatar_data_url && (
+            <Button disabled={busy} onClick={() => run(restore)}>
+              Reload photo
+            </Button>
+          )}
+          {verified && (
+            <Button disabled={busy} onClick={() => run(logout)}>
+              Sign out
+            </Button>
+          )}
+          {state === "unavailable" && (
+            <>
+              <Button
+                disabled={!enabled || busy}
+                aria-label="Retry account verification"
+                onClick={() => run(restore)}
+              >
+                Retry
+              </Button>
+              <Button disabled={busy} onClick={() => run(logout)}>
+                Sign out
+              </Button>
+            </>
+          )}
+          {state === "waiting" && (
+            <Button disabled={busy} onClick={() => run(cancel)}>
+              Cancel sign-in
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
   const content = (
     <section
-      className={`account-panel ${compact ? "account-panel-compact" : ""}`}
+      className={`account-panel account-panel-${state}`}
       aria-label="GitHub account"
       aria-busy={busy}
     >
@@ -130,9 +209,7 @@ export function AccountPanel({ compact = false }: { compact?: boolean }) {
       )}
     </section>
   );
-  return compact ? (
-    content
-  ) : (
+  return (
     <Panel className="account-section" title="GitHub account">
       {content}
     </Panel>

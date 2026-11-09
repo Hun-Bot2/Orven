@@ -284,3 +284,91 @@
   min-width: 0;
   max-width: 100%;
 }
+
+/* In-dialog hierarchy: keep editorial identity without a second page-sized masthead. */
+.settings-dialog .page-heading {
+  padding-top: 24px;
+  margin-bottom: 20px;
+}
+.settings-dialog .page-heading > .eyebrow {
+  display: none;
+}
+.settings-dialog .page-heading h1 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+}
+.settings-dialog .page-heading .page-description {
+  margin-top: 8px;
+}
+.settings-section-navigation {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding-block: 10px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+.settings-section-navigation a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  color: var(--secondary);
+  font-size: var(--text-caption);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 4px;
+}
+.settings-section {
+  min-width: 0;
+  scroll-margin-block-start: 64px;
+}
+.settings-section:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 4px;
+}
+.settings-dialog .security-page .security-metrics {
+  padding-block: 16px;
+  gap: 16px;
+}
+.settings-dialog .security-page .account-section {
+  padding-bottom: 20px;
+}
+.settings-dialog .security-content > .settings-section + .settings-section {
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+.settings-dialog .account-panel {
+  gap: 10px;
+}
+.settings-dialog .security-page .security-content {
+  gap: 24px;
+  padding-top: 24px;
+}
+@media (min-width: 601px) {
+  .settings-dialog .account-panel-signed_out,
+  .settings-dialog .account-panel-authenticated {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .settings-dialog .account-panel > p {
+    grid-column: 1 / -1;
+  }
+  .settings-dialog .account-panel-signed_out .account-actions,
+  .settings-dialog .account-panel-authenticated .account-actions {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+  }
+}
+@media (max-width: 600px) {
+  .settings-section-navigation {
+    gap: 4px 12px;
+  }
+  .settings-dialog .page-heading .heading-row {
+    align-items: flex-start;
+  }
+}

@@ -58,6 +58,7 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
+    "icon": ["icons/icon.png", "icons/icon.icns"],
     "macOS": {
       "signingIdentity": "-"
     }

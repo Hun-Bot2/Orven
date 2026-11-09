@@ -142,6 +142,26 @@ test("account toolbar exposes every auth state without asserting unknown authent
       name: "GitHub account options",
     });
     await expect(popover).toBeVisible();
+    await expect(popover).not.toHaveAttribute("aria-modal", "true");
+    await expect(
+      popover.getByRole("button", { name: "Close", exact: true }),
+    ).toHaveCount(0);
+    await expect(popover.getByText("Signed out", { exact: true })).toHaveCount(
+      0,
+    );
+    const size = await popover.boundingBox();
+    expect(size!.width).toBeGreaterThanOrEqual(240);
+    expect(size!.width).toBeLessThanOrEqual(280);
+    expect(size!.height).toBeLessThan(
+      mode === "loading" ? 100 : mode === "signed_out" ? 120 : 200,
+    );
+    if (mode === "signed_out") {
+      await expect(trigger).toHaveText("Sign in");
+      await expect(trigger.locator("svg[aria-hidden='true']")).toHaveCount(1);
+    }
+    const firstAction = popover.getByRole("button").first();
+    if (await firstAction.count()) await expect(firstAction).toBeFocused();
+    else await expect(popover).toBeFocused();
     if (mode !== "authenticated" && mode !== "missing_avatar") {
       await expect(trigger.getByRole("img")).toHaveCount(0);
       await expect(popover.getByText("Verified", { exact: true })).toHaveCount(
@@ -437,4 +457,233 @@ test("sidebar overflow and settings preserve navigation and focus", async ({
   await page.screenshot({
     path: "test-results/navigation-settings-narrow.png",
   });
+});
+
+test("macOS safe area stays in the titlebar and Settings sections remain reachable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 980, height: 680 });
+  await mount(page, "signed_out", true);
+  await page.locator(".app").evaluate((el) => el.classList.add("native-macos"));
+  await page.screenshot({
+    path: `/tmp/orven-shell-${process.env.ORVEN_CAPTURE ?? "after"}.png`,
+  });
+  const inset = await page
+    .locator(".side-navigation button")
+    .first()
+    .evaluate((el) => parseFloat(getComputedStyle(el).paddingLeft));
+  expect(inset).toBeLessThanOrEqual(20);
+  const brand = await page.locator(".brand").boundingBox();
+  expect(brand!.x).toBeGreaterThanOrEqual(96);
+  await security(page);
+  await page.screenshot({
+    path: `/tmp/orven-settings-${process.env.ORVEN_CAPTURE ?? "after"}.png`,
+  });
+  const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
+  await dialog
+    .getByRole("link", { name: "Workspace permissions", exact: true })
+    .click();
+  const workspace = dialog.locator(".settings-section").filter({
+    has: page.getByRole("heading", {
+      name: "Workspace permissions",
+      exact: true,
+    }),
+  });
+  await expect(workspace).toBeFocused();
+  await expect(
+    workspace.getByRole("heading", {
+      name: "Workspace permissions",
+      exact: true,
+    }),
+  ).toBeInViewport();
+  await dialog.getByRole("link", { name: "Audit policy", exact: true }).click();
+  await expect(dialog.locator("details.security-policy")).toHaveAttribute(
+    "open",
+    "",
+  );
+  await expect(
+    dialog.getByRole("heading", { name: "Snapshot and storage" }),
+  ).toBeInViewport();
+  await page.screenshot({ path: "/tmp/orven-settings-policy-after.png" });
+  await dialog
+    .getByRole("link", { name: "GitHub account", exact: true })
+    .click();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await dialog.locator(".dialog-body").evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  await page.screenshot({ path: "/tmp/orven-settings-after-1440.png" });
+});
+
+test("account popover stays anchored through resizing without shifting content and dismisses naturally", async ({
+  page,
+}) => {
+  await mount(page, "signed_out");
+  const trigger = page.locator(".account-trigger");
+  const mainBefore = await page.locator(".main").boundingBox();
+  await trigger.click();
+  const popover = page.getByRole("dialog", { name: "GitHub account options" });
+  expect(await page.locator(".main").boundingBox()).toEqual(mainBefore);
+  for (const width of [1440, 980, 640, 320]) {
+    await page.setViewportSize({ width, height: 780 });
+    const button = await trigger.boundingBox();
+    const panel = await popover.boundingBox();
+    expect(
+      Math.abs(panel!.x + panel!.width - button!.x - button!.width),
+    ).toBeLessThan(1);
+    expect(panel!.y).toBeGreaterThanOrEqual(button!.y + button!.height + 7);
+    expect(panel!.x).toBeGreaterThanOrEqual(0);
+    expect(panel!.x + panel!.width).toBeLessThanOrEqual(width);
+    expect(
+      await popover.evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        return el.contains(document.elementFromPoint(rect.x + 20, rect.y + 20));
+      }),
+    ).toBe(true);
+  }
+  await page.keyboard.press("Tab");
+  await expect(popover).toHaveCount(0);
+  await trigger.click();
+  await page.getByRole("button", { name: "Search evidence" }).click();
+  await expect(popover).toHaveCount(0);
+  await expect(
+    page.getByRole("dialog", { name: "Search captured evidence" }),
+  ).toBeVisible();
+});
+
+test("account actions dismiss on success and leave recovery visible on failure", async ({
+  page,
+}) => {
+  await mount(page, "signed_out");
+  const trigger = page.locator(".account-trigger");
+  const popover = page.getByRole("dialog", { name: "GitHub account options" });
+  await trigger.click();
+  await popover.getByRole("button", { name: "Sign in with GitHub" }).click();
+  await expect(popover).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toHaveText("Signing in…");
+  await trigger.click();
+  await popover.getByRole("button", { name: "Cancel sign-in" }).click();
+  await expect(popover).toHaveCount(0);
+  await expect(trigger).toHaveText("Sign in");
+  await mount(page, "authenticated");
+  await trigger.click();
+  await popover.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(popover).toHaveCount(0);
+  await expect(trigger).toHaveText("Sign in");
+  await page.evaluate(() => {
+    const original = window.__ORVEN_TEST_BRIDGE__!;
+    window.__ORVEN_TEST_BRIDGE__ = async (command, args) => {
+      if (command === "account_begin")
+        throw new Error("Synthetic sign-in outage");
+      return original(command, args);
+    };
+  });
+  await trigger.click();
+  await popover.getByRole("button", { name: "Sign in with GitHub" }).click();
+  await expect(popover).toBeVisible();
+  await expect(popover.getByRole("alert")).toContainText(
+    "Couldn’t verify your account",
+  );
+  await expect(
+    popover.getByRole("button", { name: "Retry account verification" }),
+  ).toBeVisible();
+  await expect(
+    popover.getByRole("button", { name: "Sign in with GitHub" }),
+  ).toHaveCount(0);
+});
+
+test("verified sign-in displays the returned portrait and removes it on logout", async ({
+  page,
+}) => {
+  await mount(page, "signed_out");
+  const portrait = await page.evaluate((profile) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 48;
+    canvas.height = 48;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#e8ebef";
+    ctx.fillRect(0, 0, 48, 48);
+    ctx.fillStyle = "#454b54";
+    ctx.font = "600 18px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("GH", 24, 24);
+    // Match the native adapter’s standard base64 image data URI.
+    const image = canvas.toDataURL("image/png");
+    const original = window.__ORVEN_TEST_BRIDGE__!;
+    window.__ORVEN_TEST_BRIDGE__ = async (command, args) =>
+      command === "account_poll"
+        ? { status: "authenticated", profile, avatar_data_url: image }
+        : original(command, args);
+    return image;
+  }, profile);
+  const trigger = page.locator(".account-trigger");
+  await expect(trigger.getByRole("img")).toHaveCount(0);
+  await trigger.click();
+  await page
+    .getByRole("button", { name: "Sign in with GitHub", exact: true })
+    .click();
+  const image = trigger.getByRole("img", {
+    name: `${profile.username}'s GitHub avatar`,
+  });
+  await expect(image).toHaveAttribute("src", portrait);
+  await expect
+    .poll(() =>
+      image.evaluate(
+        (el: HTMLImageElement) => el.complete && el.naturalWidth > 0,
+      ),
+    )
+    .toBe(true);
+  await expect(trigger).toHaveAttribute(
+    "aria-label",
+    `Open GitHub account: ${profile.username}`,
+  );
+  await expect(trigger.locator("svg")).toHaveCount(0);
+  await page.screenshot({ path: "/tmp/orven-authenticated-portrait.png" });
+  await trigger.click();
+  await page
+    .getByRole("dialog", { name: "GitHub account options" })
+    .getByRole("button", { name: "Sign out", exact: true })
+    .click();
+  await expect(trigger).toHaveText("Sign in");
+  await expect(trigger.getByRole("img")).toHaveCount(0);
+  await expect(trigger.locator("svg")).toHaveCount(1);
+});
+
+test("missing avatar can be retried without restarting GitHub sign-in", async ({
+  page,
+}) => {
+  await mount(page, "missing_avatar");
+  const trigger = page.locator(".account-trigger");
+  await expect(
+    trigger.getByRole("img", { name: "Avatar unavailable" }),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    const original = window.__ORVEN_TEST_BRIDGE__!;
+    window.__ORVEN_TEST_BRIDGE__ = async (command, args) => {
+      const result = await original(command, args);
+      if (command !== "account_snapshot") return result;
+      if (typeof result !== "object" || result === null)
+        throw new Error("Invalid synthetic account snapshot");
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 32;
+      canvas.getContext("2d")!.fillRect(0, 0, 32, 32);
+      return { ...result, avatar_data_url: canvas.toDataURL("image/png") };
+    };
+  });
+  await trigger.click();
+  await page.getByRole("button", { name: "Reload photo" }).click();
+  const image = trigger.locator("img");
+  await expect(image).toBeVisible();
+  await expect
+    .poll(() =>
+      image.evaluate(
+        (el: HTMLImageElement) => el.complete && el.naturalWidth > 0,
+      ),
+    )
+    .toBe(true);
+  await expect(
+    page.getByRole("button", { name: "Sign in with GitHub" }),
+  ).toHaveCount(0);
 });
