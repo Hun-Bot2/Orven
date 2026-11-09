@@ -1,0 +1,13 @@
+{
+  "name": "orven-handoff",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-09",
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "orven-handoff-db",
+      "database_id": "04f73b5-7c42-4c33-bbe8-d423e29e4b1e"
+    }
+  ]
+}
