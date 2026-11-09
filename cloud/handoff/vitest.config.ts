@@ -10,8 +10,7 @@ export default defineConfig({
   plugins: [
     cloudflareTest({
       remoteBindings: false,
-      // These module tests need only a local D1 binding, not a deployed Worker.
-      // wrangler.jsonc points to src/index.ts, which does not exist yet.
+      // Explicit local bindings keep tests independent of remote resources and .dev.vars.
       miniflare: {
         compatibilityDate: "2026-11-09",
         d1Databases: ["DB"],
