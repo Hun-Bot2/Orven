@@ -1,7 +1,8 @@
 # Orven desktop icon
 
-`orven-icon.png` is the transparent, refined master derived from the supplied
-root `logo.png`. Keep the original source unchanged. The dark rounded tile and
+`orven-icon.png` is the transparent, refined master derived from
+`orven-icon-original.png` (the supplied root `logo.png`, moved without modifying
+its bytes). Keep the original source unchanged. The dark rounded tile and
 silver ribbon retain the existing identity; pixels outside the tile are transparent.
 
 Regenerate with the installed Tauri CLI from the repository root:
