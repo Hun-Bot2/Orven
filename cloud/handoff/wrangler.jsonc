@@ -7,13 +7,13 @@
       "enabled": true,
       "head_sampling_rate": 1,
       "invocation_logs": false,
-      "persist": true,
+      "persist": true
     },
     "traces": {
       "enabled": false,
       "head_sampling_rate": 1,
-      "persist": true,
-    },
+      "persist": true
+    }
   },
   "name": "orven-handoff",
   "main": "src/index.ts",
@@ -24,7 +24,7 @@
       "binding": "DB",
       "database_name": "orven-handoff-db",
       "database_id": "a04f73b5-7c42-4c33-bbe8-d423e29e4b1e",
-      "migrations_dir": "migrations",
-    },
-  ],
+      "migrations_dir": "migrations"
+    }
+  ]
 }
